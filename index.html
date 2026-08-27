@@ -1,0 +1,791 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#0a0a0a">
+<title>Controle de Notas</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>
+  :root{
+    --bg:#0a0a0a;
+    --bg-elev:#151515;
+    --bg-elev2:#1e1e1e;
+    --line:#2a2a2a;
+    --red:#dc2626;
+    --red-dim:#7f1d1d;
+    --text:#f2f2f2;
+    --text-dim:#9a9a9a;
+    --green:#16a34a;
+    --amber:#d97706;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--text);
+    font-family:'Courier New',ui-monospace,monospace; height:100%; overflow-x:hidden;}
+  #app{max-width:520px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column;}
+
+  header{padding:16px 16px 12px;border-bottom:2px solid var(--red-dim);
+    display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;
+    background:var(--bg);z-index:10;}
+  header h1{font-size:16px;letter-spacing:1px;margin:0;text-transform:uppercase;color:var(--text);}
+  header h1 span{color:var(--red);}
+  #settingsBtn{background:none;border:1px solid var(--line);color:var(--text-dim);
+    width:34px;height:34px;border-radius:6px;font-size:16px;cursor:pointer;}
+
+  main{flex:1;padding:14px 14px 90px;}
+
+  nav#tabs{position:fixed;bottom:0;left:0;right:0;max-width:520px;margin:0 auto;
+    display:flex;background:var(--bg-elev);border-top:1px solid var(--line);z-index:10;}
+  nav#tabs button{flex:1;background:none;border:none;color:var(--text-dim);
+    padding:12px 4px 10px;font-family:inherit;font-size:11px;letter-spacing:.5px;
+    text-transform:uppercase;cursor:pointer;border-top:2px solid transparent;}
+  nav#tabs button.active{color:var(--red);border-top:2px solid var(--red);}
+
+  .btn{display:inline-block;background:var(--red);color:#fff;border:none;
+    padding:13px 18px;border-radius:8px;font-family:inherit;font-size:14px;
+    letter-spacing:.5px;text-transform:uppercase;cursor:pointer;width:100%;text-align:center;}
+  .btn:active{background:#b91c1c;}
+  .btn.secondary{background:var(--bg-elev2);color:var(--text);border:1px solid var(--line);}
+  .btn.ghost{background:none;color:var(--text-dim);border:1px solid var(--line);}
+  .btn:disabled{opacity:.4;}
+
+  .card{background:var(--bg-elev);border:1px solid var(--line);border-radius:10px;
+    padding:14px;margin-bottom:12px;}
+  .row{display:flex;gap:8px;}
+  .row > *{flex:1;}
+
+  label{display:block;font-size:11px;color:var(--text-dim);text-transform:uppercase;
+    letter-spacing:.5px;margin-bottom:4px;margin-top:10px;}
+  label:first-child{margin-top:0;}
+  input,select,textarea{width:100%;background:var(--bg);border:1px solid var(--line);
+    color:var(--text);padding:10px;border-radius:6px;font-family:inherit;font-size:14px;}
+  input:focus,select:focus,textarea:focus{outline:none;border-color:var(--red);}
+
+  .empty{text-align:center;color:var(--text-dim);padding:60px 20px;font-size:13px;line-height:1.6;}
+  .empty .big{font-size:38px;margin-bottom:10px;}
+
+  .item-row{display:flex;justify-content:space-between;align-items:center;
+    padding:10px 0;border-bottom:1px solid var(--line);gap:8px;}
+  .item-row:last-child{border-bottom:none;}
+  .item-name{font-size:13px;flex:1;}
+  .item-meta{font-size:11px;color:var(--text-dim);}
+  .price{font-size:14px;font-weight:bold;}
+  .tag{font-size:10px;padding:2px 6px;border-radius:4px;text-transform:uppercase;letter-spacing:.5px;}
+  .tag.up{background:rgba(220,38,38,.2);color:#f87171;}
+  .tag.down{background:rgba(22,163,74,.2);color:#4ade80;}
+  .tag.same{background:rgba(154,154,154,.15);color:var(--text-dim);}
+
+  #camWrap{position:fixed;inset:0;background:#000;z-index:100;display:none;
+    flex-direction:column;}
+  #camWrap.active{display:flex;}
+  #camVideo{flex:1;width:100%;object-fit:cover;background:#000;}
+  #camCanvas{display:none;}
+  #camControls{padding:20px;display:flex;justify-content:center;align-items:center;gap:30px;
+    background:#000;}
+  #shutterBtn{width:70px;height:70px;border-radius:50%;background:#fff;border:4px solid var(--red);
+    cursor:pointer;}
+  #camCancel{background:none;border:1px solid #555;color:#fff;width:44px;height:44px;
+    border-radius:50%;font-size:18px;cursor:pointer;}
+
+  #processingOverlay{position:fixed;inset:0;background:rgba(0,0,0,.9);z-index:200;
+    display:none;flex-direction:column;align-items:center;justify-content:center;gap:16px;}
+  #processingOverlay.active{display:flex;}
+  .spinner{width:40px;height:40px;border:3px solid var(--line);border-top-color:var(--red);
+    border-radius:50%;animation:spin 0.8s linear infinite;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+  #processingOverlay p{color:var(--text-dim);font-size:13px;}
+
+  .toast{position:fixed;bottom:80px;left:16px;right:16px;max-width:488px;margin:0 auto;
+    background:var(--bg-elev2);border:1px solid var(--red);color:var(--text);
+    padding:12px 16px;border-radius:8px;font-size:13px;z-index:300;
+    opacity:0;transform:translateY(10px);transition:.25s;pointer-events:none;}
+  .toast.show{opacity:1;transform:translateY(0);}
+
+  .section-title{font-size:12px;text-transform:uppercase;letter-spacing:1px;
+    color:var(--text-dim);margin:18px 0 8px;}
+  .section-title:first-child{margin-top:0;}
+
+  .close-x{background:none;border:none;color:var(--text-dim);font-size:20px;cursor:pointer;
+    position:absolute;top:10px;right:14px;}
+  .modal{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:150;display:none;
+    align-items:flex-end;justify-content:center;}
+  .modal.active{display:flex;}
+  .modal-sheet{background:var(--bg-elev);width:100%;max-width:520px;border-radius:16px 16px 0 0;
+    padding:20px;max-height:85vh;overflow-y:auto;position:relative;}
+
+  .remove-item{background:none;border:none;color:var(--red);font-size:18px;cursor:pointer;padding:0 4px;}
+  small.hint{color:var(--text-dim);font-size:11px;display:block;margin-top:4px;}
+</style>
+</head>
+<body>
+<div id="app">
+
+  <header>
+    <h1>Controle de <span>Notas</span></h1>
+    <button id="settingsBtn" title="Configurações">⚙</button>
+  </header>
+
+  <main id="main"></main>
+
+  <nav id="tabs">
+    <button data-tab="capture" class="active">📷 Nota</button>
+    <button data-tab="history">🗂 Histórico</button>
+    <button data-tab="products">📦 Produtos</button>
+    <button data-tab="suppliers">🏬 Fornecedores</button>
+  </nav>
+
+</div>
+
+<!-- Camera -->
+<div id="camWrap">
+  <video id="camVideo" autoplay playsinline></video>
+  <canvas id="camCanvas"></canvas>
+  <div id="camControls">
+    <button id="camCancel">✕</button>
+    <button id="shutterBtn"></button>
+    <div style="width:44px"></div>
+  </div>
+</div>
+
+<div id="processingOverlay">
+  <div class="spinner"></div>
+  <p id="processingText">Lendo a nota...</p>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- Settings Modal -->
+<div class="modal" id="settingsModal">
+  <div class="modal-sheet">
+    <button class="close-x" data-close="settingsModal">✕</button>
+    <div class="section-title">Configurações</div>
+    <label>Chave da API Anthropic</label>
+    <input type="password" id="apiKeyInput" placeholder="sk-ant-...">
+    <small class="hint">Sua chave fica salva só neste aparelho (localStorage). Nunca é enviada pra nenhum lugar além da API da Anthropic.</small>
+    <div style="margin-top:16px">
+      <button class="btn" id="saveApiKeyBtn">Salvar chave</button>
+    </div>
+    <div style="margin-top:24px;border-top:1px solid var(--line);padding-top:16px">
+      <label>Backup dos dados</label>
+      <div class="row">
+        <button class="btn secondary" id="exportBtn">Exportar JSON</button>
+        <button class="btn secondary" id="importBtn">Importar JSON</button>
+      </div>
+      <input type="file" id="importFile" accept="application/json" style="display:none">
+    </div>
+  </div>
+</div>
+
+<!-- Review Modal -->
+<div class="modal" id="reviewModal">
+  <div class="modal-sheet" id="reviewSheet">
+  </div>
+</div>
+
+<script>
+/* ============ IndexedDB ============ */
+const DB_NAME = 'notasDB';
+const DB_VERSION = 1;
+let db;
+
+function openDB(){
+  return new Promise((resolve,reject)=>{
+    const req = indexedDB.open(DB_NAME, DB_VERSION);
+    req.onupgradeneeded = (e) => {
+      const d = e.target.result;
+      if(!d.objectStoreNames.contains('notas')){
+        const notas = d.createObjectStore('notas', {keyPath:'id', autoIncrement:true});
+        notas.createIndex('fornecedor','fornecedor');
+        notas.createIndex('data','data');
+      }
+      if(!d.objectStoreNames.contains('itens')){
+        const itens = d.createObjectStore('itens', {keyPath:'id', autoIncrement:true});
+        itens.createIndex('notaId','notaId');
+        itens.createIndex('produtoKey','produtoKey');
+      }
+      if(!d.objectStoreNames.contains('fornecedores')){
+        d.createObjectStore('fornecedores', {keyPath:'nome'});
+      }
+    };
+    req.onsuccess = (e) => { db = e.target.result; resolve(db); };
+    req.onerror = (e) => reject(e);
+  });
+}
+
+function tx(storeNames, mode='readonly'){
+  return db.transaction(storeNames, mode);
+}
+function reqToPromise(req){
+  return new Promise((res,rej)=>{ req.onsuccess=()=>res(req.result); req.onerror=()=>rej(req.error); });
+}
+
+async function addNota(nota){
+  const t = tx(['notas'],'readwrite');
+  const id = await reqToPromise(t.objectStore('notas').add(nota));
+  return id;
+}
+async function addItem(item){
+  const t = tx(['itens'],'readwrite');
+  return reqToPromise(t.objectStore('itens').add(item));
+}
+async function upsertFornecedor(nome, cnpj){
+  const t = tx(['fornecedores'],'readwrite');
+  const store = t.objectStore('fornecedores');
+  const existing = await reqToPromise(store.get(nome));
+  if(existing){
+    existing.compras = (existing.compras||0) + 1;
+    existing.ultimaCompra = new Date().toISOString();
+    if(cnpj) existing.cnpj = cnpj;
+    store.put(existing);
+  } else {
+    store.put({nome, cnpj: cnpj||'', compras:1, ultimaCompra: new Date().toISOString()});
+  }
+}
+async function getAllNotas(){
+  const t = tx(['notas']);
+  return reqToPromise(t.objectStore('notas').getAll());
+}
+async function getAllItens(){
+  const t = tx(['itens']);
+  return reqToPromise(t.objectStore('itens').getAll());
+}
+async function getItensByNota(notaId){
+  const t = tx(['itens']);
+  const idx = t.objectStore('itens').index('notaId');
+  return reqToPromise(idx.getAll(notaId));
+}
+async function getAllFornecedores(){
+  const t = tx(['fornecedores']);
+  return reqToPromise(t.objectStore('fornecedores').getAll());
+}
+async function getItensByProdutoKey(key){
+  const t = tx(['itens']);
+  const idx = t.objectStore('itens').index('produtoKey');
+  return reqToPromise(idx.getAll(key));
+}
+
+function normalizeKey(name){
+  return (name||'').toUpperCase().trim().replace(/\s+/g,' ');
+}
+
+/* ============ App State / Nav ============ */
+let currentTab = 'capture';
+const mainEl = document.getElementById('main');
+
+document.querySelectorAll('#tabs button').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('#tabs button').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    currentTab = btn.dataset.tab;
+    render();
+  });
+});
+
+function toast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'), 2600);
+}
+
+async function render(){
+  if(currentTab==='capture') return renderCapture();
+  if(currentTab==='history') return renderHistory();
+  if(currentTab==='products') return renderProducts();
+  if(currentTab==='suppliers') return renderSuppliers();
+}
+
+/* ============ Tab: Capture ============ */
+function renderCapture(){
+  mainEl.innerHTML = `
+    <div class="empty">
+      <div class="big">📷</div>
+      <p>Tire uma foto da nota fiscal.<br>A IA vai extrair fornecedor, produtos, quantidades e valores automaticamente.</p>
+    </div>
+    <button class="btn" id="openCamBtn">Fotografar nota</button>
+    <div style="margin-top:10px">
+      <button class="btn secondary" id="pickFileBtn">Ou escolher imagem da galeria</button>
+    </div>
+    <input type="file" id="galleryInput" accept="image/*" style="display:none">
+  `;
+  document.getElementById('openCamBtn').onclick = openCamera;
+  document.getElementById('pickFileBtn').onclick = ()=>document.getElementById('galleryInput').click();
+  document.getElementById('galleryInput').onchange = (e)=>{
+    const file = e.target.files[0];
+    if(file) fileToBase64AndProcess(file);
+  };
+}
+
+/* ============ Camera ============ */
+let camStream = null;
+async function openCamera(){
+  const wrap = document.getElementById('camWrap');
+  const video = document.getElementById('camVideo');
+  try{
+    camStream = await navigator.mediaDevices.getUserMedia({
+      video:{ facingMode:'environment', width:{ideal:1600}, height:{ideal:1600} }
+    });
+    video.srcObject = camStream;
+    wrap.classList.add('active');
+  }catch(err){
+    toast('Não consegui acessar a câmera: ' + err.message);
+  }
+}
+function closeCamera(){
+  if(camStream){ camStream.getTracks().forEach(t=>t.stop()); camStream=null; }
+  document.getElementById('camWrap').classList.remove('active');
+}
+document.getElementById('camCancel').onclick = closeCamera;
+document.getElementById('shutterBtn').onclick = ()=>{
+  const video = document.getElementById('camVideo');
+  const canvas = document.getElementById('camCanvas');
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+  canvas.getContext('2d').drawImage(video,0,0);
+  const base64 = canvas.toDataURL('image/jpeg', 0.85).split(',')[1];
+  closeCamera();
+  processImage(base64);
+};
+
+function fileToBase64AndProcess(file){
+  const reader = new FileReader();
+  reader.onload = ()=>{
+    const base64 = reader.result.split(',')[1];
+    processImage(base64);
+  };
+  reader.readAsDataURL(file);
+}
+
+/* ============ AI Extraction ============ */
+function getApiKey(){ return localStorage.getItem('anthropic_api_key') || ''; }
+
+async function processImage(base64){
+  const apiKey = getApiKey();
+  if(!apiKey){
+    toast('Configure sua chave de API primeiro (⚙ no topo)');
+    openSettings();
+    return;
+  }
+  document.getElementById('processingOverlay').classList.add('active');
+  document.getElementById('processingText').textContent = 'Lendo a nota...';
+  try{
+    const prompt = `Você está lendo uma nota fiscal ou cupom fiscal brasileiro a partir de uma foto.
+Extraia os dados em JSON PURO (sem markdown, sem texto antes ou depois), seguindo exatamente este formato:
+
+{
+  "fornecedor": "nome do fornecedor/emitente",
+  "cnpj": "CNPJ se visível, senão string vazia",
+  "numero_nota": "número da nota se visível, senão string vazia",
+  "data": "data da nota no formato YYYY-MM-DD, se não conseguir identificar use string vazia",
+  "valor_total": 0.00,
+  "itens": [
+    {
+      "descricao": "descrição do produto exatamente como está na nota",
+      "quantidade": 0,
+      "unidade": "UN, CX, KG, L, etc",
+      "valor_unitario": 0.00,
+      "valor_total": 0.00
+    }
+  ]
+}
+
+Regras:
+- Números sempre como number, usando ponto decimal (não vírgula), nunca como string.
+- Se não conseguir ler algum campo com certeza, deixe string vazia ou 0, não invente valores.
+- Inclua TODOS os itens da nota, mesmo que a lista seja longa.
+- Responda APENAS o JSON, nada mais.`;
+
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 4000,
+        messages: [{
+          role: 'user',
+          content: [
+            { type:'image', source:{ type:'base64', media_type:'image/jpeg', data: base64 } },
+            { type:'text', text: prompt }
+          ]
+        }]
+      })
+    });
+
+    if(!response.ok){
+      const errText = await response.text();
+      throw new Error(`API retornou erro ${response.status}: ${errText.slice(0,200)}`);
+    }
+    const data = await response.json();
+    const textBlock = data.content.find(b=>b.type==='text');
+    if(!textBlock) throw new Error('Resposta sem texto');
+    let clean = textBlock.text.trim().replace(/^```json/i,'').replace(/^```/,'').replace(/```$/,'').trim();
+    const parsed = JSON.parse(clean);
+    document.getElementById('processingOverlay').classList.remove('active');
+    await openReview(parsed, base64);
+  }catch(err){
+    document.getElementById('processingOverlay').classList.remove('active');
+    toast('Erro ao ler a nota: ' + err.message);
+  }
+}
+
+/* ============ Review & Save ============ */
+async function openReview(parsed, base64){
+  const modal = document.getElementById('reviewModal');
+  const sheet = document.getElementById('reviewSheet');
+
+  // Pre-fetch price comparisons for each item
+  const itemsWithComparison = await Promise.all((parsed.itens||[]).map(async (item)=>{
+    const key = normalizeKey(item.descricao);
+    const history = await getItensByProdutoKey(key);
+    let lastPrice = null;
+    if(history.length){
+      history.sort((a,b)=> new Date(b.data) - new Date(a.data));
+      lastPrice = history[0].valor_unitario;
+    }
+    return {...item, lastPrice};
+  }));
+
+  function itemRowHtml(item, idx){
+    let tag = '';
+    if(item.lastPrice != null){
+      const diff = item.valor_unitario - item.lastPrice;
+      const pct = item.lastPrice ? (diff/item.lastPrice*100) : 0;
+      if(Math.abs(pct) < 0.5) tag = `<span class="tag same">= R$${item.lastPrice.toFixed(2)}</span>`;
+      else if(diff > 0) tag = `<span class="tag up">▲ ${pct.toFixed(1)}% (era R$${item.lastPrice.toFixed(2)})</span>`;
+      else tag = `<span class="tag down">▼ ${Math.abs(pct).toFixed(1)}% (era R$${item.lastPrice.toFixed(2)})</span>`;
+    }
+    return `
+    <div class="card" data-item-idx="${idx}">
+      <div class="row" style="align-items:center">
+        <div style="flex:3">
+          <label>Produto</label>
+          <input class="f-desc" value="${escapeHtml(item.descricao)}">
+        </div>
+        <button class="remove-item" data-remove="${idx}">🗑</button>
+      </div>
+      <div class="row">
+        <div>
+          <label>Qtd</label>
+          <input class="f-qtd" type="number" step="0.01" value="${item.quantidade ?? 0}">
+        </div>
+        <div>
+          <label>Unid.</label>
+          <input class="f-un" value="${escapeHtml(item.unidade||'')}">
+        </div>
+        <div>
+          <label>Valor unit.</label>
+          <input class="f-vu" type="number" step="0.01" value="${item.valor_unitario ?? 0}">
+        </div>
+      </div>
+      <div style="margin-top:6px">${tag}</div>
+    </div>`;
+  }
+
+  sheet.innerHTML = `
+    <button class="close-x" id="closeReview">✕</button>
+    <div class="section-title">Conferir dados da nota</div>
+    <label>Fornecedor</label>
+    <input id="f-fornecedor" value="${escapeHtml(parsed.fornecedor||'')}">
+    <div class="row">
+      <div>
+        <label>CNPJ</label>
+        <input id="f-cnpj" value="${escapeHtml(parsed.cnpj||'')}">
+      </div>
+      <div>
+        <label>Nº Nota</label>
+        <input id="f-numero" value="${escapeHtml(parsed.numero_nota||'')}">
+      </div>
+    </div>
+    <div class="row">
+      <div>
+        <label>Data</label>
+        <input id="f-data" type="date" value="${parsed.data||''}">
+      </div>
+      <div>
+        <label>Valor total</label>
+        <input id="f-valortotal" type="number" step="0.01" value="${parsed.valor_total ?? 0}">
+      </div>
+    </div>
+
+    <div class="section-title">Itens (${itemsWithComparison.length})</div>
+    <div id="itemsList">
+      ${itemsWithComparison.map(itemRowHtml).join('')}
+    </div>
+
+    <button class="btn secondary" id="addItemBtn" style="margin-bottom:12px">+ Adicionar item</button>
+    <button class="btn" id="confirmSaveBtn">Salvar nota</button>
+  `;
+
+  let itemsState = itemsWithComparison;
+
+  function refreshItemsDom(){
+    document.getElementById('itemsList').innerHTML = itemsState.map(itemRowHtml).join('');
+    bindItemEvents();
+  }
+  function bindItemEvents(){
+    document.querySelectorAll('[data-remove]').forEach(b=>{
+      b.onclick = ()=>{
+        const idx = parseInt(b.dataset.remove);
+        itemsState.splice(idx,1);
+        refreshItemsDom();
+      };
+    });
+  }
+  bindItemEvents();
+
+  document.getElementById('addItemBtn').onclick = ()=>{
+    itemsState.push({descricao:'', quantidade:1, unidade:'UN', valor_unitario:0, lastPrice:null});
+    refreshItemsDom();
+  };
+
+  document.getElementById('closeReview').onclick = ()=> modal.classList.remove('active');
+
+  document.getElementById('confirmSaveBtn').onclick = async ()=>{
+    // read current DOM values back into itemsState (in case user edited)
+    const cards = document.querySelectorAll('#itemsList .card');
+    const finalItems = Array.from(cards).map(card=>{
+      return {
+        descricao: card.querySelector('.f-desc').value.trim(),
+        quantidade: parseFloat(card.querySelector('.f-qtd').value) || 0,
+        unidade: card.querySelector('.f-un').value.trim(),
+        valor_unitario: parseFloat(card.querySelector('.f-vu').value) || 0,
+      };
+    }).filter(i=>i.descricao);
+
+    const nota = {
+      fornecedor: document.getElementById('f-fornecedor').value.trim() || 'Não identificado',
+      cnpj: document.getElementById('f-cnpj').value.trim(),
+      numero_nota: document.getElementById('f-numero').value.trim(),
+      data: document.getElementById('f-data').value || new Date().toISOString().slice(0,10),
+      valor_total: parseFloat(document.getElementById('f-valortotal').value) || 0,
+      criadoEm: new Date().toISOString()
+    };
+
+    const notaId = await addNota(nota);
+    for(const item of finalItems){
+      await addItem({
+        notaId,
+        produtoKey: normalizeKey(item.descricao),
+        descricao: item.descricao,
+        quantidade: item.quantidade,
+        unidade: item.unidade,
+        valor_unitario: item.valor_unitario,
+        valor_total: +(item.quantidade * item.valor_unitario).toFixed(2),
+        data: nota.data
+      });
+    }
+    await upsertFornecedor(nota.fornecedor, nota.cnpj);
+
+    modal.classList.remove('active');
+    toast(`Nota salva: ${finalItems.length} itens registrados`);
+    if(currentTab !== 'capture') render();
+    else renderCapture();
+  };
+
+  modal.classList.add('active');
+}
+
+function escapeHtml(s){
+  return (s||'').toString().replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+}
+
+/* ============ Tab: History ============ */
+async function renderHistory(){
+  const notas = await getAllNotas();
+  notas.sort((a,b)=> new Date(b.data) - new Date(a.data));
+  if(!notas.length){
+    mainEl.innerHTML = `<div class="empty"><div class="big">🗂</div><p>Nenhuma nota registrada ainda.</p></div>`;
+    return;
+  }
+  mainEl.innerHTML = notas.map(n=>`
+    <div class="card" data-nota="${n.id}" style="cursor:pointer">
+      <div class="row" style="align-items:center">
+        <div style="flex:2">
+          <div style="font-size:14px;font-weight:bold">${escapeHtml(n.fornecedor)}</div>
+          <div class="item-meta">${n.data} ${n.numero_nota ? '· Nº '+escapeHtml(n.numero_nota) : ''}</div>
+        </div>
+        <div class="price">R$ ${n.valor_total.toFixed(2)}</div>
+      </div>
+    </div>
+  `).join('');
+
+  mainEl.querySelectorAll('[data-nota]').forEach(card=>{
+    card.onclick = ()=> showNotaDetail(parseInt(card.dataset.nota));
+  });
+}
+
+async function showNotaDetail(notaId){
+  const notas = await getAllNotas();
+  const nota = notas.find(n=>n.id===notaId);
+  const itens = await getItensByNota(notaId);
+  const modal = document.getElementById('reviewModal');
+  const sheet = document.getElementById('reviewSheet');
+  sheet.innerHTML = `
+    <button class="close-x" id="closeReview">✕</button>
+    <div class="section-title">${escapeHtml(nota.fornecedor)}</div>
+    <div class="item-meta">${nota.data} ${nota.numero_nota?'· Nº '+escapeHtml(nota.numero_nota):''} ${nota.cnpj?'· '+escapeHtml(nota.cnpj):''}</div>
+    <div class="card" style="margin-top:14px">
+      ${itens.map(i=>`
+        <div class="item-row">
+          <div>
+            <div class="item-name">${escapeHtml(i.descricao)}</div>
+            <div class="item-meta">${i.quantidade} ${escapeHtml(i.unidade||'')} × R$ ${i.valor_unitario.toFixed(2)}</div>
+          </div>
+          <div class="price">R$ ${i.valor_total.toFixed(2)}</div>
+        </div>
+      `).join('')}
+    </div>
+    <div class="row" style="margin-top:10px">
+      <div class="item-meta">Total da nota</div>
+      <div class="price" style="text-align:right">R$ ${nota.valor_total.toFixed(2)}</div>
+    </div>
+    <button class="btn ghost" id="deleteNotaBtn" style="margin-top:16px">Excluir nota</button>
+  `;
+  document.getElementById('closeReview').onclick = ()=> modal.classList.remove('active');
+  document.getElementById('deleteNotaBtn').onclick = async ()=>{
+    if(!confirm('Excluir esta nota e seus itens?')) return;
+    const t = tx(['notas','itens'],'readwrite');
+    t.objectStore('notas').delete(notaId);
+    const idx = t.objectStore('itens').index('notaId');
+    const req = idx.openCursor(IDBKeyRange.only(notaId));
+    req.onsuccess = (e)=>{
+      const cursor = e.target.result;
+      if(cursor){ cursor.delete(); cursor.continue(); }
+    };
+    t.oncomplete = ()=>{
+      modal.classList.remove('active');
+      toast('Nota excluída');
+      renderHistory();
+    };
+  };
+  modal.classList.add('active');
+}
+
+/* ============ Tab: Products ============ */
+async function renderProducts(){
+  const itens = await getAllItens();
+  if(!itens.length){
+    mainEl.innerHTML = `<div class="empty"><div class="big">📦</div><p>Nenhum produto registrado ainda.</p></div>`;
+    return;
+  }
+  const byKey = {};
+  itens.forEach(i=>{
+    if(!byKey[i.produtoKey]) byKey[i.produtoKey] = [];
+    byKey[i.produtoKey].push(i);
+  });
+  const products = Object.values(byKey).map(list=>{
+    list.sort((a,b)=> new Date(b.data)-new Date(a.data));
+    const last = list[0];
+    const prev = list[1];
+    return { nome:last.descricao, last, prev, count:list.length };
+  });
+  products.sort((a,b)=> a.nome.localeCompare(b.nome));
+
+  mainEl.innerHTML = `<div class="section-title">${products.length} produtos · último preço registrado</div>` +
+    products.map(p=>{
+      let tag = '';
+      if(p.prev){
+        const diff = p.last.valor_unitario - p.prev.valor_unitario;
+        const pct = p.prev.valor_unitario ? (diff/p.prev.valor_unitario*100) : 0;
+        if(Math.abs(pct) < 0.5) tag = `<span class="tag same">estável</span>`;
+        else if(diff>0) tag = `<span class="tag up">▲ ${pct.toFixed(1)}%</span>`;
+        else tag = `<span class="tag down">▼ ${Math.abs(pct).toFixed(1)}%</span>`;
+      }
+      return `
+      <div class="card">
+        <div class="row" style="align-items:center">
+          <div style="flex:2">
+            <div style="font-size:13px">${escapeHtml(p.nome)}</div>
+            <div class="item-meta">${p.last.data} · ${p.count}x comprado</div>
+          </div>
+          <div style="text-align:right">
+            <div class="price">R$ ${p.last.valor_unitario.toFixed(2)}</div>
+            ${tag}
+          </div>
+        </div>
+      </div>`;
+    }).join('');
+}
+
+/* ============ Tab: Suppliers ============ */
+async function renderSuppliers(){
+  const fornecedores = await getAllFornecedores();
+  if(!fornecedores.length){
+    mainEl.innerHTML = `<div class="empty"><div class="big">🏬</div><p>Nenhum fornecedor registrado ainda.</p></div>`;
+    return;
+  }
+  fornecedores.sort((a,b)=> new Date(b.ultimaCompra)-new Date(a.ultimaCompra));
+  mainEl.innerHTML = fornecedores.map(f=>`
+    <div class="card">
+      <div style="font-size:14px;font-weight:bold">${escapeHtml(f.nome)}</div>
+      ${f.cnpj ? `<div class="item-meta">${escapeHtml(f.cnpj)}</div>` : ''}
+      <div class="item-meta">${f.compras} compra(s) · última em ${f.ultimaCompra.slice(0,10)}</div>
+    </div>
+  `).join('');
+}
+
+/* ============ Settings ============ */
+function openSettings(){
+  document.getElementById('apiKeyInput').value = getApiKey();
+  document.getElementById('settingsModal').classList.add('active');
+}
+document.getElementById('settingsBtn').onclick = openSettings;
+document.querySelectorAll('[data-close]').forEach(b=>{
+  b.onclick = ()=> document.getElementById(b.dataset.close).classList.remove('active');
+});
+document.getElementById('saveApiKeyBtn').onclick = ()=>{
+  const key = document.getElementById('apiKeyInput').value.trim();
+  localStorage.setItem('anthropic_api_key', key);
+  toast('Chave salva');
+  document.getElementById('settingsModal').classList.remove('active');
+};
+
+document.getElementById('exportBtn').onclick = async ()=>{
+  const notas = await getAllNotas();
+  const itens = await getAllItens();
+  const fornecedores = await getAllFornecedores();
+  const blob = new Blob([JSON.stringify({notas,itens,fornecedores}, null, 2)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = `notas-backup-${new Date().toISOString().slice(0,10)}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+};
+document.getElementById('importBtn').onclick = ()=> document.getElementById('importFile').click();
+document.getElementById('importFile').onchange = async (e)=>{
+  const file = e.target.files[0];
+  if(!file) return;
+  const text = await file.text();
+  try{
+    const data = JSON.parse(text);
+    const t = tx(['notas','itens','fornecedores'],'readwrite');
+    (data.notas||[]).forEach(n=>{ delete n.id; t.objectStore('notas').add(n); });
+    (data.itens||[]).forEach(i=>{ delete i.id; t.objectStore('itens').add(i); });
+    (data.fornecedores||[]).forEach(f=> t.objectStore('fornecedores').put(f));
+    t.oncomplete = ()=>{ toast('Dados importados'); document.getElementById('settingsModal').classList.remove('active'); render(); };
+  }catch(err){
+    toast('Arquivo inválido: ' + err.message);
+  }
+};
+
+/* ============ Init ============ */
+(async function init(){
+  await openDB();
+  if('serviceWorker' in navigator){
+    navigator.serviceWorker.register('./sw.js').catch(()=>{});
+  }
+  if(!getApiKey()){
+    setTimeout(()=>{ toast('Configure sua chave de API pra começar (⚙)'); }, 600);
+  }
+  render();
+})();
+</script>
+</body>
+</html>
