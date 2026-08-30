@@ -1,6 +1,6 @@
 {
-  "name": "Controle de Notas",
-  "short_name": "Notas",
+  "name": "ZERO! Controle",
+  "short_name": "ZERO!",
   "description": "Fotografe notas fiscais e registre produtos automaticamente",
   "start_url": "./index.html",
   "scope": "./",

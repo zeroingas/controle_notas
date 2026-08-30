@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="theme-color" content="#0a0a0a">
-<title>Controle de Notas</title>
+<title>ZERO! Controle</title>
 <link rel="manifest" href="manifest.json">
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
@@ -30,7 +30,7 @@
     display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;
     background:var(--bg);z-index:10;}
   header h1{font-size:16px;letter-spacing:1px;margin:0;text-transform:uppercase;color:var(--text);}
-  header h1 span{color:var(--red);}
+  header h1 span{color:var(--red);font-weight:bold;}
   #settingsBtn{background:none;border:1px solid var(--line);color:var(--text-dim);
     width:34px;height:34px;border-radius:6px;font-size:16px;cursor:pointer;}
 
@@ -126,7 +126,7 @@
 <div id="app">
 
   <header>
-    <h1>Controle de <span>Notas</span></h1>
+    <h1><span>ZERO!</span> Controle</h1>
     <button id="settingsBtn" title="Configurações">⚙</button>
   </header>
 
@@ -211,7 +211,7 @@
   display:none;flex-direction:column;justify-content:center;padding:24px;">
   <div style="max-width:420px;margin:0 auto;width:100%">
     <h1 style="text-align:center;margin-bottom:6px;font-size:18px;letter-spacing:1px;text-transform:uppercase">
-      Controle de <span style="color:var(--red)">Notas</span>
+      <span style="color:var(--red);font-weight:bold">ZERO!</span> Controle
     </h1>
     <p style="text-align:center;color:var(--text-dim);font-size:12px;margin-bottom:24px">
       Faça login pra sincronizar seus dados entre aparelhos
@@ -1282,7 +1282,7 @@ async function exportToExcel(){
     notas.forEach(n=> notasById[n.id]=n);
 
     const wb = new ExcelJS.Workbook();
-    wb.creator = 'Controle de Notas';
+    wb.creator = 'ZERO! Controle';
     wb.created = new Date();
 
     /* --- Aba: Comparativo de Preços --- */
