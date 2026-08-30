@@ -50,6 +50,8 @@
   .btn:active{background:#b91c1c;}
   .btn.secondary{background:var(--bg-elev2);color:var(--text);border:1px solid var(--line);}
   .btn.ghost{background:none;color:var(--text-dim);border:1px solid var(--line);}
+  .btn.green{background:var(--green);color:#fff;}
+  .btn.green:active{background:#15803d;}
   .btn:disabled{opacity:.4;}
 
   .card{background:var(--bg-elev);border:1px solid var(--line);border-radius:10px;
@@ -134,7 +136,6 @@
     <button data-tab="capture" class="active">📷 Nota</button>
     <button data-tab="history">🗂 Histórico</button>
     <button data-tab="products">📦 Produtos</button>
-    <button data-tab="stock">📥 Estoque</button>
     <button data-tab="suppliers">🏬 Fornecedores</button>
   </nav>
 
@@ -404,9 +405,17 @@ function renderCapture(){
     <div style="margin-top:10px">
       <button class="btn secondary" id="pickXmlBtn">📄 Importar XML da NFe</button>
     </div>
+    <div style="margin-top:10px">
+      <button class="btn green" id="goStockBtn">📥 Ver estoque</button>
+    </div>
     <input type="file" id="galleryInput" accept="image/*" style="display:none">
     <input type="file" id="xmlInput" accept=".xml,text/xml,application/xml" style="display:none">
   `;
+  document.getElementById('goStockBtn').onclick = ()=>{
+    document.querySelectorAll('#tabs button').forEach(b=>b.classList.remove('active'));
+    currentTab = 'stock';
+    render();
+  };
   document.getElementById('openCamBtn').onclick = openCamera;
   document.getElementById('pickFileBtn').onclick = ()=>document.getElementById('galleryInput').click();
   document.getElementById('galleryInput').onchange = (e)=>{
