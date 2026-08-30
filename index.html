@@ -134,6 +134,7 @@
     <button data-tab="capture" class="active">📷 Nota</button>
     <button data-tab="history">🗂 Histórico</button>
     <button data-tab="products">📦 Produtos</button>
+    <button data-tab="stock">📥 Estoque</button>
     <button data-tab="suppliers">🏬 Fornecedores</button>
   </nav>
 
@@ -326,6 +327,39 @@ function normalizeKey(name){
   return (name||'').toUpperCase().trim().replace(/\s+/g,' ');
 }
 
+/* Estoque: entrada automática ao salvar nota, leitura/lembrete de mínimo aqui;
+   a baixa (venda/consumo) é feita por outro app no mesmo Firestore. */
+async function getAllEstoque(){
+  const snap = await fsDB.collection('estoque').get();
+  return snap.docs.map(d=>({id:d.id, ...d.data()}));
+}
+async function registrarEntradaEstoque(produtoKey, nome, quantidade){
+  if(!produtoKey || !quantidade) return;
+  const ref = fsDB.collection('estoque').doc(sanitizeDocId(produtoKey));
+  await ref.set({
+    produtoKey,
+    nome,
+    quantidade: firebase.firestore.FieldValue.increment(quantidade),
+    atualizadoEm: new Date().toISOString()
+  }, {merge:true});
+}
+async function ajustarEstoque(produtoKey, novaQuantidade, nome){
+  const ref = fsDB.collection('estoque').doc(sanitizeDocId(produtoKey));
+  const payload = { produtoKey, quantidade: novaQuantidade, atualizadoEm: new Date().toISOString() };
+  if(nome) payload.nome = nome;
+  await ref.set(payload, {merge:true});
+}
+async function setEstoqueMinimo(produtoKey, valor, nome){
+  const ref = fsDB.collection('estoque').doc(sanitizeDocId(produtoKey));
+  const payload = { produtoKey, estoqueMinimo: valor };
+  if(nome) payload.nome = nome;
+  await ref.set(payload, {merge:true});
+}
+async function upsertEstoqueRaw(e){
+  if(!e.produtoKey) return;
+  await fsDB.collection('estoque').doc(sanitizeDocId(e.produtoKey)).set(e, {merge:true});
+}
+
 
 /* ============ App State / Nav ============ */
 let currentTab = 'capture';
@@ -352,6 +386,7 @@ async function render(){
   if(currentTab==='capture') return renderCapture();
   if(currentTab==='history') return renderHistory();
   if(currentTab==='products') return renderProducts();
+  if(currentTab==='stock') return renderStock();
   if(currentTab==='suppliers') return renderSuppliers();
 }
 
@@ -791,9 +826,10 @@ async function openReview(parsed, base64){
     try{
       const notaId = await addNota(nota);
       for(const item of finalItems){
+        const produtoKey = item.codigoBarras ? ('EAN:' + item.codigoBarras) : normalizeKey(item.descricao);
         await addItem({
           notaId,
-          produtoKey: item.codigoBarras ? ('EAN:' + item.codigoBarras) : normalizeKey(item.descricao),
+          produtoKey,
           codigoBarras: item.codigoBarras || '',
           descricao: item.descricao,
           quantidade: item.quantidade,
@@ -802,6 +838,7 @@ async function openReview(parsed, base64){
           valor_total: +(item.quantidade * item.valor_unitario).toFixed(2),
           data: nota.data
         });
+        await registrarEntradaEstoque(produtoKey, item.descricao, item.quantidade);
       }
       await upsertFornecedor(nota.fornecedor, nota.cnpj);
 
@@ -938,6 +975,118 @@ async function renderProducts(){
     }).join('');
 }
 
+/* ============ Tab: Stock ============ */
+async function renderStock(){
+  const [estoqueList, itens] = await Promise.all([getAllEstoque(), getAllItens()]);
+  const estoqueByKey = {};
+  estoqueList.forEach(e=> estoqueByKey[e.produtoKey] = e);
+
+  // garante que produtos já comprados apareçam mesmo sem doc de estoque (ex: compra antiga)
+  const nomesByKey = {};
+  itens.forEach(i=>{ if(!nomesByKey[i.produtoKey]) nomesByKey[i.produtoKey] = i.descricao; });
+  Object.keys(nomesByKey).forEach(key=>{
+    if(!estoqueByKey[key]) estoqueByKey[key] = { produtoKey:key, nome:nomesByKey[key], quantidade:0, estoqueMinimo:0 };
+  });
+
+  const list = Object.values(estoqueByKey);
+  if(!list.length){
+    mainEl.innerHTML = `<div class="empty"><div class="big">📥</div><p>Nenhum produto em estoque ainda.<br>Registre uma nota pra começar.</p></div>`;
+    return;
+  }
+  list.forEach(e=>{ e.baixo = (e.estoqueMinimo||0) > 0 && (e.quantidade||0) <= e.estoqueMinimo; });
+  list.sort((a,b)=>{
+    if(a.baixo !== b.baixo) return a.baixo ? -1 : 1;
+    return (a.nome||'').localeCompare(b.nome||'');
+  });
+  const baixoCount = list.filter(e=>e.baixo).length;
+
+  mainEl.innerHTML = `<div class="section-title">${list.length} produtos${baixoCount ? ` · ⚠ ${baixoCount} com estoque baixo` : ''}</div>` +
+    list.map(e=>`
+      <div class="card" data-stock-key="${escapeHtml(e.produtoKey)}" style="cursor:pointer">
+        <div class="row" style="align-items:center">
+          <div style="flex:2">
+            <div style="font-size:13px">${escapeHtml(e.nome||'(sem nome)')}</div>
+            ${e.estoqueMinimo ? `<div class="item-meta">mínimo: ${e.estoqueMinimo}</div>` : ''}
+          </div>
+          <div style="text-align:right">
+            <div class="price">${e.quantidade ?? 0}</div>
+            ${e.baixo ? `<span class="tag up">⚠ baixo</span>` : ''}
+          </div>
+        </div>
+      </div>
+    `).join('') +
+    `<button class="btn ghost" id="recalcEstoqueBtn" style="margin-top:14px">Recalcular a partir do histórico de notas</button>`;
+
+  mainEl.querySelectorAll('[data-stock-key]').forEach(card=>{
+    card.onclick = ()=> openStockDetail(card.dataset.stockKey, estoqueByKey[card.dataset.stockKey]);
+  });
+  document.getElementById('recalcEstoqueBtn').onclick = recalcularEstoqueDoHistorico;
+}
+
+function openStockDetail(produtoKey, e){
+  const modal = document.getElementById('reviewModal');
+  const sheet = document.getElementById('reviewSheet');
+  sheet.innerHTML = `
+    <button class="close-x" id="closeReview">✕</button>
+    <div class="section-title">${escapeHtml(e.nome||'(sem nome)')}</div>
+    <div class="item-meta">Quantidade atual: <b>${e.quantidade ?? 0}</b></div>
+    <label>Estoque mínimo (lembrete de compra)</label>
+    <input id="f-estmin" type="number" step="1" value="${e.estoqueMinimo ?? 0}">
+    <div style="margin-top:10px">
+      <button class="btn secondary" id="saveMinBtn">Salvar mínimo</button>
+    </div>
+    <div style="margin-top:24px;border-top:1px solid var(--line);padding-top:16px">
+      <label>Corrigir quantidade em estoque</label>
+      <input id="f-ajuste" type="number" step="1" value="${e.quantidade ?? 0}">
+      <small class="hint">Use isso pra acertar o número quando estiver errado (ex: contagem física, estoque inicial).</small>
+      <div style="margin-top:10px">
+        <button class="btn" id="saveAjusteBtn">Salvar quantidade</button>
+      </div>
+    </div>
+  `;
+  document.getElementById('closeReview').onclick = ()=> modal.classList.remove('active');
+  document.getElementById('saveMinBtn').onclick = async ()=>{
+    const val = parseFloat(document.getElementById('f-estmin').value) || 0;
+    try{
+      await setEstoqueMinimo(produtoKey, val, e.nome);
+      toast('Estoque mínimo salvo');
+      modal.classList.remove('active');
+      renderStock();
+    }catch(err){ toast('Erro: ' + err.message); }
+  };
+  document.getElementById('saveAjusteBtn').onclick = async ()=>{
+    const val = parseFloat(document.getElementById('f-ajuste').value) || 0;
+    try{
+      await ajustarEstoque(produtoKey, val, e.nome);
+      toast('Quantidade ajustada');
+      modal.classList.remove('active');
+      renderStock();
+    }catch(err){ toast('Erro: ' + err.message); }
+  };
+  modal.classList.add('active');
+}
+
+async function recalcularEstoqueDoHistorico(){
+  if(!confirm('Isso substitui a quantidade atual de TODOS os produtos pela soma de tudo que já foi comprado nas notas. Se o outro app já deu baixas de venda, elas serão perdidas. Continuar?')) return;
+  toast('Recalculando...');
+  try{
+    const itens = await getAllItens();
+    const totals = {};
+    const nomes = {};
+    itens.forEach(i=>{
+      totals[i.produtoKey] = (totals[i.produtoKey]||0) + (i.quantidade||0);
+      nomes[i.produtoKey] = i.descricao;
+    });
+    for(const key of Object.keys(totals)){
+      await ajustarEstoque(key, totals[key], nomes[key]);
+    }
+    toast('Estoque recalculado');
+    renderStock();
+  }catch(err){
+    toast('Erro ao recalcular: ' + err.message);
+  }
+}
+
 /* ============ Tab: Suppliers ============ */
 async function renderSuppliers(){
   const fornecedores = await getAllFornecedores();
@@ -1048,7 +1197,8 @@ document.getElementById('exportBtn').onclick = async ()=>{
   const notas = await getAllNotas();
   const itens = await getAllItens();
   const fornecedores = await getAllFornecedores();
-  const blob = new Blob([JSON.stringify({notas,itens,fornecedores}, null, 2)], {type:'application/json'});
+  const estoque = await getAllEstoque();
+  const blob = new Blob([JSON.stringify({notas,itens,fornecedores,estoque}, null, 2)], {type:'application/json'});
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url; a.download = `notas-backup-${new Date().toISOString().slice(0,10)}.json`;
@@ -1079,6 +1229,9 @@ document.getElementById('importFile').onchange = async (e)=>{
     }
     for(const f of (data.fornecedores||[])){
       await upsertFornecedorRaw(f);
+    }
+    for(const e of (data.estoque||[])){
+      await upsertEstoqueRaw(e);
     }
     toast('Dados importados com sucesso');
     document.getElementById('settingsModal').classList.remove('active');
