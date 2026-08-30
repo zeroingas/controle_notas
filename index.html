@@ -396,19 +396,15 @@ function renderCapture(){
   mainEl.innerHTML = `
     <div class="empty">
       <div class="big">📷</div>
-      <p>Tire uma foto da nota, ou importe o XML da NFe se tiver.<br>O XML é mais rápido e exato — não precisa de IA.</p>
+      <p>Tire uma foto da nota ou importe um arquivo XML</p>
     </div>
     <button class="btn" id="openCamBtn">Fotografar nota</button>
     <div style="margin-top:10px">
-      <button class="btn secondary" id="pickFileBtn">Ou escolher imagem da galeria</button>
-    </div>
-    <div style="margin-top:10px">
-      <button class="btn secondary" id="pickXmlBtn">📄 Importar XML da NFe</button>
+      <button class="btn secondary" id="pickXmlBtn">📄 Importar XML</button>
     </div>
     <div style="margin-top:10px">
       <button class="btn green" id="goStockBtn">📥 Ver estoque</button>
     </div>
-    <input type="file" id="galleryInput" accept="image/*" style="display:none">
     <input type="file" id="xmlInput" accept=".xml,text/xml,application/xml" style="display:none">
   `;
   document.getElementById('goStockBtn').onclick = ()=>{
@@ -417,11 +413,6 @@ function renderCapture(){
     render();
   };
   document.getElementById('openCamBtn').onclick = openCamera;
-  document.getElementById('pickFileBtn').onclick = ()=>document.getElementById('galleryInput').click();
-  document.getElementById('galleryInput').onchange = (e)=>{
-    const file = e.target.files[0];
-    if(file) fileToBase64AndProcess(file);
-  };
   document.getElementById('pickXmlBtn').onclick = ()=>document.getElementById('xmlInput').click();
   document.getElementById('xmlInput').onchange = async (e)=>{
     const file = e.target.files[0];
@@ -553,15 +544,6 @@ document.getElementById('shutterBtn').onclick = ()=>{
   closeCamera();
   processImage(base64);
 };
-
-function fileToBase64AndProcess(file){
-  const reader = new FileReader();
-  reader.onload = ()=>{
-    const base64 = reader.result.split(',')[1];
-    processImage(base64);
-  };
-  reader.readAsDataURL(file);
-}
 
 /* ============ AI Extraction ============ */
 function getApiKey(){ return localStorage.getItem('anthropic_api_key') || ''; }
