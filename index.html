@@ -454,6 +454,12 @@ function formatCNPJ(v){
   if(digits.length !== 14) return v || '';
   return digits.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5');
 }
+function formatDateBR(isoDate){
+  if(!isoDate) return '';
+  const [y,m,d] = isoDate.slice(0,10).split('-');
+  if(!y || !m || !d) return isoDate;
+  return `${d}/${m}/${y}`;
+}
 
 function parseNFeXml(xmlString){
   const parser = new DOMParser();
@@ -864,7 +870,7 @@ async function renderHistory(){
       <div class="row" style="align-items:center">
         <div style="flex:2">
           <div style="font-size:14px;font-weight:bold">${escapeHtml(n.fornecedor)}</div>
-          <div class="item-meta">${n.data} ${n.numero_nota ? '· Nº '+escapeHtml(n.numero_nota) : ''}</div>
+          <div class="item-meta">${formatDateBR(n.data)} ${n.numero_nota ? '· Nº '+escapeHtml(n.numero_nota) : ''}</div>
           ${n.forma_pagamento ? `<div class="item-meta">💳 ${escapeHtml(n.forma_pagamento)}</div>` : ''}
         </div>
         <div class="price">R$ ${n.valor_total.toFixed(2)}</div>
@@ -886,7 +892,7 @@ async function showNotaDetail(notaId){
   sheet.innerHTML = `
     <button class="close-x" id="closeReview">✕</button>
     <div class="section-title">${escapeHtml(nota.fornecedor)}</div>
-    <div class="item-meta">${nota.data} ${nota.numero_nota?'· Nº '+escapeHtml(nota.numero_nota):''} ${nota.cnpj?'· '+escapeHtml(nota.cnpj):''}</div>
+    <div class="item-meta">${formatDateBR(nota.data)} ${nota.numero_nota?'· Nº '+escapeHtml(nota.numero_nota):''} ${nota.cnpj?'· '+escapeHtml(nota.cnpj):''}</div>
     ${nota.forma_pagamento ? `<div class="item-meta" style="margin-top:2px">💳 ${escapeHtml(nota.forma_pagamento)}</div>` : ''}
     <div class="card" style="margin-top:14px">
       ${itens.map(i=>`
@@ -955,7 +961,7 @@ async function renderProducts(){
         <div class="row" style="align-items:center">
           <div style="flex:2">
             <div style="font-size:13px">${escapeHtml(p.nome)}</div>
-            <div class="item-meta">${p.last.data} · ${p.count}x comprado</div>
+            <div class="item-meta">${formatDateBR(p.last.data)} · ${p.count}x comprado</div>
           </div>
           <div style="text-align:right">
             <div class="price">R$ ${p.last.valor_unitario.toFixed(2)}</div>
@@ -1090,7 +1096,7 @@ async function renderSuppliers(){
     <div class="card">
       <div style="font-size:14px;font-weight:bold">${escapeHtml(f.nome)}</div>
       ${f.cnpj ? `<div class="item-meta">${escapeHtml(f.cnpj)}</div>` : ''}
-      <div class="item-meta">${f.compras} compra(s) · última em ${f.ultimaCompra.slice(0,10)}</div>
+      <div class="item-meta">${f.compras} compra(s) · última em ${formatDateBR(f.ultimaCompra)}</div>
     </div>
   `).join('');
 }
@@ -1325,7 +1331,7 @@ async function exportToExcel(){
         const row = wsComp.addRow({
           produto: idx===0 ? item.descricao : '',
           fornecedor: nota ? nota.fornecedor : '',
-          data: item.data,
+          data: formatDateBR(item.data),
           pagamento: nota ? (nota.forma_pagamento || '') : '',
           qtd: item.quantidade,
           unid: item.unidade,
@@ -1367,7 +1373,7 @@ async function exportToExcel(){
     itens.slice().sort((a,b)=> new Date(b.data)-new Date(a.data)).forEach(item=>{
       const nota = notasById[item.notaId];
       const row = wsItens.addRow({
-        data: item.data,
+        data: formatDateBR(item.data),
         fornecedor: nota ? nota.fornecedor : '',
         pagamento: nota ? (nota.forma_pagamento || '') : '',
         produto: item.descricao,
@@ -1396,7 +1402,7 @@ async function exportToExcel(){
     wsNotas.views = [{ state:'frozen', ySplit:1 }];
     notas.slice().sort((a,b)=> new Date(b.data)-new Date(a.data)).forEach(n=>{
       const row = wsNotas.addRow({
-        data: n.data,
+        data: formatDateBR(n.data),
         fornecedor: n.fornecedor,
         numero: n.numero_nota,
         cnpj: n.cnpj,
@@ -1421,7 +1427,7 @@ async function exportToExcel(){
         nome: f.nome,
         cnpj: f.cnpj,
         compras: f.compras,
-        ultima: f.ultimaCompra ? f.ultimaCompra.slice(0,10) : '',
+        ultima: formatDateBR(f.ultimaCompra),
       });
     });
 
