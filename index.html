@@ -260,8 +260,10 @@ async function addItem(item){
   await fsDB.collection('itens').add(item);
 }
 function fornecedorDocId(nome){
-  // Firestore doc IDs can't contain '/', and safest to avoid other special chars too
-  return encodeURIComponent((nome||'').trim()).slice(0, 300);
+  // Firestore doc IDs can't contain '/'. A chave é normalizada (maiúsculas, espaços
+  // colapsados) pra não criar um fornecedor duplicado a cada pequena variação de
+  // leitura entre notas (ex: "Distribuidora ABC" vs "DISTRIBUIDORA  ABC").
+  return encodeURIComponent(normalizeKey(nome)).slice(0, 300);
 }
 async function upsertFornecedor(nome, cnpj){
   const ref = fsDB.collection('fornecedores').doc(fornecedorDocId(nome));
@@ -269,6 +271,7 @@ async function upsertFornecedor(nome, cnpj){
   if(doc.exists){
     const data = doc.data();
     await ref.update({
+      nome,
       compras: (data.compras||0) + 1,
       ultimaCompra: new Date().toISOString(),
       cnpj: cnpj || data.cnpj || ''
