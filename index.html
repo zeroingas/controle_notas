@@ -143,6 +143,8 @@
 
 <!-- Camera -->
 <div id="camWrap">
+  <div id="camHint" style="display:none;position:absolute;top:16px;left:16px;right:16px;text-align:center;
+    color:#fff;font-size:13px;background:rgba(0,0,0,.6);padding:10px;border-radius:8px;z-index:1">Aponte para o QR Code da nota</div>
   <video id="camVideo" autoplay playsinline></video>
   <canvas id="camCanvas"></canvas>
   <div id="camControls">
@@ -403,6 +405,9 @@ function renderCapture(){
       <button class="btn secondary" id="pickXmlBtn">📄 Importar XML</button>
     </div>
     <div style="margin-top:10px">
+      <button class="btn secondary" id="qrScanBtn">🔳 Ler QR Code (chave de acesso)</button>
+    </div>
+    <div style="margin-top:10px">
       <button class="btn green" id="goStockBtn">📥 Ver estoque</button>
     </div>
     <input type="file" id="xmlInput" accept=".xml,text/xml,application/xml" style="display:none">
@@ -413,6 +418,7 @@ function renderCapture(){
     render();
   };
   document.getElementById('openCamBtn').onclick = openCamera;
+  document.getElementById('qrScanBtn').onclick = openQrScanner;
   document.getElementById('pickXmlBtn').onclick = ()=>document.getElementById('xmlInput').click();
   document.getElementById('xmlInput').onchange = async (e)=>{
     const file = e.target.files[0];
@@ -529,7 +535,10 @@ function parseNFeXml(xmlString){
 
 /* ============ Camera ============ */
 let camStream = null;
-async function openCamera(){
+let camMode = 'photo';
+let qrScanActive = false;
+
+async function startCamera(){
   const wrap = document.getElementById('camWrap');
   const video = document.getElementById('camVideo');
   try{
@@ -538,16 +547,35 @@ async function openCamera(){
     });
     video.srcObject = camStream;
     wrap.classList.add('active');
+    return true;
   }catch(err){
     toast('Não consegui acessar a câmera: ' + err.message);
+    return false;
   }
 }
+async function openCamera(){
+  camMode = 'photo';
+  document.getElementById('camHint').style.display = 'none';
+  document.getElementById('shutterBtn').style.display = '';
+  await startCamera();
+}
+async function openQrScanner(){
+  camMode = 'qr';
+  document.getElementById('camHint').style.display = 'block';
+  document.getElementById('shutterBtn').style.display = 'none';
+  const ok = await startCamera();
+  if(!ok) return;
+  qrScanActive = true;
+  runQrScanLoop();
+}
 function closeCamera(){
+  qrScanActive = false;
   if(camStream){ camStream.getTracks().forEach(t=>t.stop()); camStream=null; }
   document.getElementById('camWrap').classList.remove('active');
 }
 document.getElementById('camCancel').onclick = closeCamera;
 document.getElementById('shutterBtn').onclick = ()=>{
+  if(camMode !== 'photo') return;
   const video = document.getElementById('camVideo');
   const canvas = document.getElementById('camCanvas');
   canvas.width = video.videoWidth;
@@ -557,6 +585,87 @@ document.getElementById('shutterBtn').onclick = ()=>{
   closeCamera();
   processImage(base64);
 };
+
+/* ============ QR Code: captura só a chave de acesso da NFe ============ */
+let jsQrLoaded = false;
+function loadJsQR(){
+  return new Promise((resolve, reject)=>{
+    if(jsQrLoaded || window.jsQR){ jsQrLoaded = true; return resolve(); }
+    const script = document.createElement('script');
+    script.src = 'https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js';
+    script.onload = ()=>{ jsQrLoaded = true; resolve(); };
+    script.onerror = ()=> reject(new Error('Não consegui carregar o leitor de QR Code (precisa de internet)'));
+    document.head.appendChild(script);
+  });
+}
+
+async function runQrScanLoop(){
+  const video = document.getElementById('camVideo');
+  const canvas = document.getElementById('camCanvas');
+  const ctx = canvas.getContext('2d');
+
+  let detector = null;
+  if('BarcodeDetector' in window){
+    try{ detector = new BarcodeDetector({ formats: ['qr_code'] }); }catch(e){ detector = null; }
+  }
+  if(!detector){
+    try{ await loadJsQR(); }catch(err){ toast(err.message); closeCamera(); return; }
+  }
+
+  async function tick(){
+    if(!qrScanActive) return;
+    if(video.readyState === video.HAVE_ENOUGH_DATA){
+      try{
+        let rawValue = '';
+        if(detector){
+          const codes = await detector.detect(video);
+          if(codes.length) rawValue = codes[0].rawValue;
+        } else if(window.jsQR){
+          canvas.width = video.videoWidth;
+          canvas.height = video.videoHeight;
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+          const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          const result = window.jsQR(imageData.data, imageData.width, imageData.height);
+          if(result) rawValue = result.data;
+        }
+        if(rawValue){
+          qrScanActive = false;
+          closeCamera();
+          handleQrScanned(rawValue);
+          return;
+        }
+      }catch(e){ /* frame ruim, tenta de novo */ }
+    }
+    if(qrScanActive) setTimeout(tick, 200);
+  }
+  tick();
+}
+
+let pendingChaveAcesso = '';
+function extractChaveFromQrText(text){
+  if(!text) return '';
+  let pParam = '';
+  try{
+    const url = new URL(text);
+    pParam = url.searchParams.get('p') || '';
+  }catch(e){
+    pParam = '';
+  }
+  const source = pParam || text;
+  const digitsFirstSegment = source.split('|')[0].replace(/\D/g,'');
+  if(digitsFirstSegment.length === 44) return digitsFirstSegment;
+  const match = text.match(/\d{44}/);
+  return match ? match[0] : '';
+}
+function handleQrScanned(rawValue){
+  const chave = extractChaveFromQrText(rawValue);
+  if(!chave){
+    toast('Não consegui identificar a chave de acesso nesse QR Code');
+    return;
+  }
+  pendingChaveAcesso = chave;
+  toast('Chave de acesso capturada! Agora tire a foto ou importe o XML da nota.');
+}
 
 /* ============ AI Extraction ============ */
 function getApiKey(){ return localStorage.getItem('anthropic_api_key') || ''; }
@@ -653,6 +762,11 @@ function matchKeyFor(item){
 }
 
 async function openReview(parsed, base64){
+  if(!parsed.chave_acesso && pendingChaveAcesso){
+    parsed.chave_acesso = pendingChaveAcesso;
+  }
+  pendingChaveAcesso = '';
+
   const modal = document.getElementById('reviewModal');
   const sheet = document.getElementById('reviewSheet');
 
