@@ -280,6 +280,9 @@ async function upsertFornecedor(nome, cnpj){
 async function upsertFornecedorRaw(f){
   await fsDB.collection('fornecedores').doc(fornecedorDocId(f.nome)).set(f, {merge:true});
 }
+async function deleteFornecedor(nome){
+  await fsDB.collection('fornecedores').doc(fornecedorDocId(nome)).delete();
+}
 async function getAllNotas(){
   const snap = await fsDB.collection('notas').get();
   return snap.docs.map(d=>({id:d.id, ...d.data()}));
@@ -1355,11 +1358,30 @@ async function renderSuppliers(){
   fornecedores.sort((a,b)=> new Date(b.ultimaCompra)-new Date(a.ultimaCompra));
   mainEl.innerHTML = fornecedores.map(f=>`
     <div class="card">
-      <div style="font-size:14px;font-weight:bold">${escapeHtml(f.nome)}</div>
-      ${f.cnpj ? `<div class="item-meta">${escapeHtml(f.cnpj)}</div>` : ''}
-      <div class="item-meta">${f.compras} compra(s) · última em ${formatDateBR(f.ultimaCompra)}</div>
+      <div class="row" style="align-items:center">
+        <div style="flex:1">
+          <div style="font-size:14px;font-weight:bold">${escapeHtml(f.nome)}</div>
+          ${f.cnpj ? `<div class="item-meta">${escapeHtml(f.cnpj)}</div>` : ''}
+          <div class="item-meta">${f.compras} compra(s) · última em ${formatDateBR(f.ultimaCompra)}</div>
+        </div>
+        <button class="remove-item" data-del-fornecedor="${escapeHtml(f.nome)}">🗑</button>
+      </div>
     </div>
   `).join('');
+
+  mainEl.querySelectorAll('[data-del-fornecedor]').forEach(btn=>{
+    btn.onclick = async ()=>{
+      const nome = btn.dataset.delFornecedor;
+      if(!confirm(`Excluir "${nome}" da lista de fornecedores? Isso não apaga as notas já registradas com esse fornecedor.`)) return;
+      try{
+        await deleteFornecedor(nome);
+        toast('Fornecedor excluído');
+        renderSuppliers();
+      }catch(err){
+        toast('Erro ao excluir: ' + err.message);
+      }
+    };
+  });
 }
 
 /* ============ Settings ============ */
