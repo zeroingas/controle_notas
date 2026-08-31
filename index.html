@@ -1356,32 +1356,42 @@ async function renderSuppliers(){
     return;
   }
   fornecedores.sort((a,b)=> new Date(b.ultimaCompra)-new Date(a.ultimaCompra));
-  mainEl.innerHTML = fornecedores.map(f=>`
-    <div class="card">
-      <div class="row" style="align-items:center">
-        <div style="flex:1">
-          <div style="font-size:14px;font-weight:bold">${escapeHtml(f.nome)}</div>
-          ${f.cnpj ? `<div class="item-meta">${escapeHtml(f.cnpj)}</div>` : ''}
-          <div class="item-meta">${f.compras} compra(s) · última em ${formatDateBR(f.ultimaCompra)}</div>
-        </div>
-        <button class="remove-item" data-del-fornecedor="${escapeHtml(f.nome)}">🗑</button>
-      </div>
-    </div>
-  `).join('');
 
-  mainEl.querySelectorAll('[data-del-fornecedor]').forEach(btn=>{
-    btn.onclick = async ()=>{
-      const nome = btn.dataset.delFornecedor;
-      if(!confirm(`Excluir "${nome}" da lista de fornecedores? Isso não apaga as notas já registradas com esse fornecedor.`)) return;
-      try{
-        await deleteFornecedor(nome);
-        toast('Fornecedor excluído');
-        renderSuppliers();
-      }catch(err){
-        toast('Erro ao excluir: ' + err.message);
-      }
-    };
-  });
+  function renderList(){
+    if(!fornecedores.length){
+      mainEl.innerHTML = `<div class="empty"><div class="big">🏬</div><p>Nenhum fornecedor registrado ainda.</p></div>`;
+      return;
+    }
+    mainEl.innerHTML = fornecedores.map(f=>`
+      <div class="card">
+        <div class="row" style="align-items:center">
+          <div style="flex:1">
+            <div style="font-size:14px;font-weight:bold">${escapeHtml(f.nome)}</div>
+            ${f.cnpj ? `<div class="item-meta">${escapeHtml(f.cnpj)}</div>` : ''}
+            <div class="item-meta">${f.compras} compra(s) · última em ${formatDateBR(f.ultimaCompra)}</div>
+          </div>
+          <button class="remove-item" data-del-fornecedor="${escapeHtml(f.nome)}">🗑</button>
+        </div>
+      </div>
+    `).join('');
+
+    mainEl.querySelectorAll('[data-del-fornecedor]').forEach(btn=>{
+      btn.onclick = async ()=>{
+        const nome = btn.dataset.delFornecedor;
+        if(!confirm(`Excluir "${nome}" da lista de fornecedores? Isso não apaga as notas já registradas com esse fornecedor.`)) return;
+        try{
+          await deleteFornecedor(nome);
+          const idx = fornecedores.findIndex(f=>f.nome === nome);
+          if(idx > -1) fornecedores.splice(idx, 1);
+          toast('Fornecedor excluído');
+          renderList();
+        }catch(err){
+          toast('Erro ao excluir: ' + err.message);
+        }
+      };
+    });
+  }
+  renderList();
 }
 
 /* ============ Settings ============ */
