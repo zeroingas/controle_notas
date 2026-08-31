@@ -326,6 +326,22 @@ async function deleteAlias(rawKey){
   await fsDB.collection('aliases').doc(sanitizeDocId(rawKey)).delete();
 }
 
+/* Categorias: mapeia produtoKey -> nome da categoria (ex: Gin, Uísque, Cerveja) */
+async function getAllCategorias(){
+  const snap = await fsDB.collection('categorias').get();
+  const map = {};
+  snap.docs.forEach(d=> map[d.data().produtoKey || d.id] = d.data().categoria);
+  return map;
+}
+async function setCategoria(produtoKey, categoria){
+  const ref = fsDB.collection('categorias').doc(sanitizeDocId(produtoKey));
+  if(!categoria){
+    await ref.delete().catch(()=>{});
+    return;
+  }
+  await ref.set({ produtoKey, categoria, atualizadoEm: new Date().toISOString() });
+}
+
 function normalizeKey(name){
   return (name||'').toUpperCase().trim().replace(/\s+/g,' ');
 }
@@ -366,12 +382,14 @@ async function upsertEstoqueRaw(e){
 
 /* ============ App State / Nav ============ */
 let currentTab = 'capture';
+let selectedCategoria = null;
 const mainEl = document.getElementById('main');
 
 document.querySelectorAll('#tabs button').forEach(btn=>{
   btn.addEventListener('click', ()=>{
     document.querySelectorAll('#tabs button').forEach(b=>b.classList.remove('active'));
     btn.classList.add('active');
+    if(btn.dataset.tab === 'products') selectedCategoria = null;
     currentTab = btn.dataset.tab;
     render();
   });
@@ -1091,16 +1109,64 @@ async function renderProducts(){
     if(!byKey[i.produtoKey]) byKey[i.produtoKey] = [];
     byKey[i.produtoKey].push(i);
   });
-  const products = Object.values(byKey).map(list=>{
+  const categoriasMap = await getAllCategorias();
+  const products = Object.entries(byKey).map(([produtoKey, list])=>{
     list.sort((a,b)=> new Date(b.data)-new Date(a.data));
     const last = list[0];
     const prev = list[1];
-    return { nome:last.descricao, last, prev, count:list.length };
+    return { produtoKey, nome:last.descricao, last, prev, count:list.length, categoria: categoriasMap[produtoKey] || 'Sem categoria' };
   });
-  products.sort((a,b)=> a.nome.localeCompare(b.nome));
 
-  mainEl.innerHTML = `<div class="section-title">${products.length} produtos · último preço registrado</div>` +
-    products.map(p=>{
+  if(!selectedCategoria){
+    renderProductCategories(products);
+  } else {
+    renderProductList(products, categoriasMap);
+  }
+}
+
+function renderProductCategories(products){
+  const groups = {};
+  products.forEach(p=>{
+    if(!groups[p.categoria]) groups[p.categoria] = [];
+    groups[p.categoria].push(p);
+  });
+  const categoriaNames = Object.keys(groups).sort((a,b)=>{
+    if(a==='Sem categoria') return 1;
+    if(b==='Sem categoria') return -1;
+    return a.localeCompare(b);
+  });
+
+  mainEl.innerHTML = `<div class="section-title">${products.length} produtos · ${categoriaNames.length} categoria(s)</div>` +
+    categoriaNames.map(cat=>`
+      <div class="card" data-categoria="${escapeHtml(cat)}" style="cursor:pointer">
+        <div class="row" style="align-items:center">
+          <div style="flex:2">
+            <div style="font-size:14px;font-weight:bold">${escapeHtml(cat)}</div>
+            <div class="item-meta">${groups[cat].length} produto(s)</div>
+          </div>
+          <div style="color:var(--text-dim)">›</div>
+        </div>
+      </div>
+    `).join('');
+
+  mainEl.querySelectorAll('[data-categoria]').forEach(card=>{
+    card.onclick = ()=>{
+      selectedCategoria = card.dataset.categoria;
+      renderProducts();
+    };
+  });
+}
+
+function renderProductList(products, categoriasMap){
+  const list = products.filter(p=>p.categoria === selectedCategoria).sort((a,b)=> a.nome.localeCompare(b.nome));
+  const existingCategorias = [...new Set(Object.values(categoriasMap))].filter(Boolean).sort();
+
+  mainEl.innerHTML = `
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">
+      <button class="btn ghost" id="backToCategories" style="width:auto;padding:8px 12px">‹ Categorias</button>
+      <div class="section-title" style="margin:0">${escapeHtml(selectedCategoria)} (${list.length})</div>
+    </div>
+    ${list.length ? list.map(p=>{
       let tag = '';
       if(p.prev){
         const diff = p.last.valor_unitario - p.prev.valor_unitario;
@@ -1110,7 +1176,7 @@ async function renderProducts(){
         else tag = `<span class="tag down">▼ ${Math.abs(pct).toFixed(1)}%</span>`;
       }
       return `
-      <div class="card">
+      <div class="card" data-produto-key="${escapeHtml(p.produtoKey)}" style="cursor:pointer">
         <div class="row" style="align-items:center">
           <div style="flex:2">
             <div style="font-size:13px">${escapeHtml(p.nome)}</div>
@@ -1122,7 +1188,49 @@ async function renderProducts(){
           </div>
         </div>
       </div>`;
-    }).join('');
+    }).join('') : `<div class="empty"><p>Nenhum produto nessa categoria.</p></div>`}
+  `;
+
+  document.getElementById('backToCategories').onclick = ()=>{
+    selectedCategoria = null;
+    renderProducts();
+  };
+  mainEl.querySelectorAll('[data-produto-key]').forEach(card=>{
+    card.onclick = ()=>{
+      const p = products.find(x=>x.produtoKey === card.dataset.produtoKey);
+      openProductDetail(p, existingCategorias);
+    };
+  });
+}
+
+function openProductDetail(product, existingCategorias){
+  const modal = document.getElementById('reviewModal');
+  const sheet = document.getElementById('reviewSheet');
+  sheet.innerHTML = `
+    <button class="close-x" id="closeReview">✕</button>
+    <div class="section-title">${escapeHtml(product.nome)}</div>
+    <div class="item-meta">Último preço: R$ ${product.last.valor_unitario.toFixed(2)} · ${product.count}x comprado</div>
+    <label>Categoria</label>
+    <input id="f-categoria" list="categoriaList" value="${product.categoria==='Sem categoria' ? '' : escapeHtml(product.categoria)}" placeholder="Ex: Gin, Uísque, Vodka, Cerveja, Sem Álcool">
+    <datalist id="categoriaList">
+      ${existingCategorias.map(c=>`<option value="${escapeHtml(c)}">`).join('')}
+    </datalist>
+    <div style="margin-top:10px">
+      <button class="btn" id="saveCategoriaBtn">Salvar categoria</button>
+    </div>
+  `;
+  document.getElementById('closeReview').onclick = ()=> modal.classList.remove('active');
+  document.getElementById('saveCategoriaBtn').onclick = async ()=>{
+    const val = document.getElementById('f-categoria').value.trim();
+    try{
+      await setCategoria(product.produtoKey, val);
+      toast('Categoria salva');
+      modal.classList.remove('active');
+      selectedCategoria = null;
+      renderProducts();
+    }catch(err){ toast('Erro: ' + err.message); }
+  };
+  modal.classList.add('active');
 }
 
 /* ============ Tab: Stock ============ */
@@ -1348,7 +1456,9 @@ document.getElementById('exportBtn').onclick = async ()=>{
   const itens = await getAllItens();
   const fornecedores = await getAllFornecedores();
   const estoque = await getAllEstoque();
-  const blob = new Blob([JSON.stringify({notas,itens,fornecedores,estoque}, null, 2)], {type:'application/json'});
+  const categoriasMap = await getAllCategorias();
+  const categorias = Object.entries(categoriasMap).map(([produtoKey, categoria])=>({produtoKey, categoria}));
+  const blob = new Blob([JSON.stringify({notas,itens,fornecedores,estoque,categorias}, null, 2)], {type:'application/json'});
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url; a.download = `notas-backup-${new Date().toISOString().slice(0,10)}.json`;
@@ -1382,6 +1492,9 @@ document.getElementById('importFile').onchange = async (e)=>{
     }
     for(const e of (data.estoque||[])){
       await upsertEstoqueRaw(e);
+    }
+    for(const c of (data.categorias||[])){
+      if(c.produtoKey) await setCategoria(c.produtoKey, c.categoria);
     }
     toast('Dados importados com sucesso');
     document.getElementById('settingsModal').classList.remove('active');
