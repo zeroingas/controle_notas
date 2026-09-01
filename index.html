@@ -937,6 +937,19 @@ async function openReview(parsed, base64){
     if(pagSelect) pagSelect.value = parsed.forma_pagamento;
   }
 
+  function syncItemsStateFromDom(){
+    // Antes de mexer na lista (add/remove), lê o que está na tela de volta pro
+    // estado — senão qualquer edição (nome, padronizar, qtd, valor) se perde
+    // no próximo redesenho, porque ele reconstrói tudo a partir do itemsState.
+    document.querySelectorAll('#itemsList .card').forEach(card=>{
+      const idx = parseInt(card.dataset.itemIdx);
+      if(!itemsState[idx]) return;
+      itemsState[idx].descricao = card.querySelector('.f-desc').value;
+      itemsState[idx].quantidade = parseFloat(card.querySelector('.f-qtd').value) || 0;
+      itemsState[idx].unidade = card.querySelector('.f-un').value;
+      itemsState[idx].valor_unitario = parseFloat(card.querySelector('.f-vu').value) || 0;
+    });
+  }
   function refreshItemsDom(){
     document.getElementById('itemsList').innerHTML = itemsState.map(itemRowHtml).join('');
     bindItemEvents();
@@ -944,6 +957,7 @@ async function openReview(parsed, base64){
   function bindItemEvents(){
     document.querySelectorAll('[data-remove]').forEach(b=>{
       b.onclick = ()=>{
+        syncItemsStateFromDom();
         const idx = parseInt(b.dataset.remove);
         itemsState.splice(idx,1);
         refreshItemsDom();
@@ -956,6 +970,7 @@ async function openReview(parsed, base64){
   bindItemEvents();
 
   document.getElementById('addItemBtn').onclick = ()=>{
+    syncItemsStateFromDom();
     itemsState.push({descricao:'', quantidade:1, unidade:'UN', valor_unitario:0, lastPrice:null});
     refreshItemsDom();
   };
