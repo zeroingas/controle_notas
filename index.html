@@ -1383,6 +1383,16 @@ async function recalcularEstoqueDoHistorico(){
   }
 }
 
+async function checkEstoqueBaixoNotice(){
+  try{
+    const estoque = await getAllEstoque();
+    const baixoCount = estoque.filter(e=> (e.estoqueMinimo||0) > 0 && (e.quantidade||0) <= e.estoqueMinimo).length;
+    if(baixoCount){
+      toast(`⚠ ${baixoCount} produto${baixoCount>1?'s':''} com estoque baixo`);
+    }
+  }catch(err){ /* silencioso, não é crítico */ }
+}
+
 /* ============ Settings ============ */
 function openSettings(){
   document.getElementById('apiKeyInput').value = getApiKey();
@@ -1775,6 +1785,7 @@ document.getElementById('signupBtn').onclick = async ()=>{
       if(!getApiKey()){
         setTimeout(()=>{ toast('Configure sua chave de API pra começar (⚙)'); }, 600);
       }
+      setTimeout(checkEstoqueBaixoNotice, getApiKey() ? 600 : 3400);
       render();
     } else {
       showLoginScreen();
