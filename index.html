@@ -405,6 +405,7 @@ function renderCapture(){
   `;
   document.getElementById('goStockBtn').onclick = ()=>{
     document.querySelectorAll('#tabs button').forEach(b=>b.classList.remove('active'));
+    selectedEstoqueCategoria = null;
     currentTab = 'stock';
     render();
   };
@@ -1206,8 +1207,26 @@ function openProductDetail(product, existingCategorias){
 }
 
 /* ============ Tab: Stock ============ */
+let selectedEstoqueCategoria = null;
+
+function stockCardHtml(e){
+  return `
+    <div class="card" data-stock-key="${escapeHtml(e.produtoKey)}" style="cursor:pointer${e.baixo ? ';border-color:var(--red)' : ''}">
+      <div class="row" style="align-items:center">
+        <div style="flex:2">
+          <div style="font-size:13px">${escapeHtml(e.nome||'(sem nome)')}</div>
+          <div class="item-meta">${e.estoqueMinimo ? `mínimo: ${e.estoqueMinimo}` : ''}${e.estoqueMinimo && e.categoria && e.categoria!=='Sem categoria' ? ' · ' : ''}${e.categoria && e.categoria!=='Sem categoria' ? escapeHtml(e.categoria) : ''}</div>
+        </div>
+        <div style="text-align:right">
+          <div class="price">${e.quantidade ?? 0}</div>
+          ${e.baixo ? `<span class="tag up">⚠ baixo</span>` : ''}
+        </div>
+      </div>
+    </div>`;
+}
+
 async function renderStock(){
-  const [estoqueList, itens] = await Promise.all([getAllEstoque(), getAllItens()]);
+  const [estoqueList, itens, categoriasMap] = await Promise.all([getAllEstoque(), getAllItens(), getAllCategorias()]);
   const estoqueByKey = {};
   estoqueList.forEach(e=> estoqueByKey[e.produtoKey] = e);
 
@@ -1223,25 +1242,46 @@ async function renderStock(){
     mainEl.innerHTML = `<div class="empty"><div class="big">📥</div><p>Nenhum produto em estoque ainda.<br>Registre uma nota pra começar.</p></div>`;
     return;
   }
-  list.forEach(e=>{ e.baixo = (e.estoqueMinimo||0) > 0 && (e.quantidade||0) <= e.estoqueMinimo; });
-  list.sort((a,b)=>{
-    if(a.baixo !== b.baixo) return a.baixo ? -1 : 1;
-    return (a.nome||'').localeCompare(b.nome||'');
+  list.forEach(e=>{
+    e.baixo = (e.estoqueMinimo||0) > 0 && (e.quantidade||0) <= e.estoqueMinimo;
+    e.categoria = categoriasMap[e.produtoKey] || 'Sem categoria';
   });
-  const baixoCount = list.filter(e=>e.baixo).length;
 
-  mainEl.innerHTML = `<div class="section-title">${list.length} produtos${baixoCount ? ` · ⚠ ${baixoCount} com estoque baixo` : ''}</div>` +
-    list.map(e=>`
-      <div class="card" data-stock-key="${escapeHtml(e.produtoKey)}" style="cursor:pointer">
+  if(!selectedEstoqueCategoria){
+    renderStockOverview(list, estoqueByKey);
+  } else {
+    renderStockCategoryList(list, estoqueByKey);
+  }
+}
+
+function renderStockOverview(list, estoqueByKey){
+  const baixoList = list.filter(e=>e.baixo).sort((a,b)=> (a.nome||'').localeCompare(b.nome||''));
+
+  const groups = {};
+  list.forEach(e=>{
+    if(!groups[e.categoria]) groups[e.categoria] = [];
+    groups[e.categoria].push(e);
+  });
+  const categoriaNames = Object.keys(groups).sort((a,b)=>{
+    if(a==='Sem categoria') return 1;
+    if(b==='Sem categoria') return -1;
+    return a.localeCompare(b);
+  });
+
+  mainEl.innerHTML =
+    (baixoList.length ? `
+      <div class="section-title" style="color:#f87171">⚠ Estoque baixo (${baixoList.length})</div>
+      ${baixoList.map(stockCardHtml).join('')}
+    ` : '') +
+    `<div class="section-title">${list.length} produtos · ${categoriaNames.length} categoria(s)</div>` +
+    categoriaNames.map(cat=>`
+      <div class="card" data-categoria="${escapeHtml(cat)}" style="cursor:pointer">
         <div class="row" style="align-items:center">
           <div style="flex:2">
-            <div style="font-size:13px">${escapeHtml(e.nome||'(sem nome)')}</div>
-            ${e.estoqueMinimo ? `<div class="item-meta">mínimo: ${e.estoqueMinimo}</div>` : ''}
+            <div style="font-size:14px;font-weight:bold">${escapeHtml(cat)}</div>
+            <div class="item-meta">${groups[cat].length} produto(s)</div>
           </div>
-          <div style="text-align:right">
-            <div class="price">${e.quantidade ?? 0}</div>
-            ${e.baixo ? `<span class="tag up">⚠ baixo</span>` : ''}
-          </div>
+          <div style="color:var(--text-dim)">›</div>
         </div>
       </div>
     `).join('') +
@@ -1250,7 +1290,33 @@ async function renderStock(){
   mainEl.querySelectorAll('[data-stock-key]').forEach(card=>{
     card.onclick = ()=> openStockDetail(card.dataset.stockKey, estoqueByKey[card.dataset.stockKey]);
   });
+  mainEl.querySelectorAll('[data-categoria]').forEach(card=>{
+    card.onclick = ()=>{
+      selectedEstoqueCategoria = card.dataset.categoria;
+      renderStock();
+    };
+  });
   document.getElementById('recalcEstoqueBtn').onclick = recalcularEstoqueDoHistorico;
+}
+
+function renderStockCategoryList(list, estoqueByKey){
+  const filtered = list.filter(e=>e.categoria === selectedEstoqueCategoria).sort((a,b)=> (a.nome||'').localeCompare(b.nome||''));
+
+  mainEl.innerHTML = `
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">
+      <button class="btn ghost" id="backToStockCategories" style="width:auto;padding:8px 12px">‹ Categorias</button>
+      <div class="section-title" style="margin:0">${escapeHtml(selectedEstoqueCategoria)} (${filtered.length})</div>
+    </div>
+    ${filtered.length ? filtered.map(stockCardHtml).join('') : `<div class="empty"><p>Nenhum produto nessa categoria.</p></div>`}
+  `;
+
+  document.getElementById('backToStockCategories').onclick = ()=>{
+    selectedEstoqueCategoria = null;
+    renderStock();
+  };
+  mainEl.querySelectorAll('[data-stock-key]').forEach(card=>{
+    card.onclick = ()=> openStockDetail(card.dataset.stockKey, estoqueByKey[card.dataset.stockKey]);
+  });
 }
 
 function openStockDetail(produtoKey, e){
