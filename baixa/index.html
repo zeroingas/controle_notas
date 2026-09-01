@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#0a0a0a">
+<title>ZERO! Baixa</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="../icon-192.png">
+<link rel="apple-touch-icon" href="../icon-192.png">
+<style>
+  :root{
+    --bg:#0a0a0a;
+    --bg-elev:#151515;
+    --bg-elev2:#1e1e1e;
+    --line:#2a2a2a;
+    --red:#dc2626;
+    --red-dim:#7f1d1d;
+    --text:#f2f2f2;
+    --text-dim:#9a9a9a;
+    --green:#16a34a;
+    --amber:#d97706;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--text);
+    font-family:'Courier New',ui-monospace,monospace; height:100%; overflow-x:hidden;}
+  #app{max-width:520px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column;}
+
+  header{padding:16px 16px 12px;border-bottom:2px solid var(--red-dim);
+    display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;
+    background:var(--bg);z-index:10;}
+  header h1{font-size:16px;letter-spacing:1px;margin:0;text-transform:uppercase;color:var(--text);}
+  header h1 span{color:var(--red);font-weight:bold;}
+  header .user-chip{font-size:11px;color:var(--text-dim);text-align:right;cursor:pointer;
+    border:1px solid var(--line);border-radius:6px;padding:6px 10px;}
+  header .user-chip b{color:var(--text);display:block;font-size:12px;}
+
+  main{flex:1;padding:14px 14px 90px;display:flex;flex-direction:column;}
+
+  nav#tabs{position:fixed;bottom:0;left:0;right:0;max-width:520px;margin:0 auto;
+    display:flex;background:var(--bg-elev);border-top:1px solid var(--line);z-index:10;}
+  nav#tabs button{flex:1;background:none;border:none;color:var(--text-dim);
+    padding:12px 4px 10px;font-family:inherit;font-size:11px;letter-spacing:.5px;
+    text-transform:uppercase;cursor:pointer;border-top:2px solid transparent;}
+  nav#tabs button.active{color:var(--red);border-top:2px solid var(--red);}
+
+  .btn{display:inline-block;background:var(--red);color:#fff;border:none;
+    padding:13px 18px;border-radius:8px;font-family:inherit;font-size:14px;
+    letter-spacing:.5px;text-transform:uppercase;cursor:pointer;width:100%;text-align:center;}
+  .btn:active{background:#b91c1c;}
+  .btn.secondary{background:var(--bg-elev2);color:var(--text);border:1px solid var(--line);}
+  .btn.ghost{background:none;color:var(--text-dim);border:1px solid var(--line);}
+  .btn:disabled{opacity:.4;}
+
+  .card{background:var(--bg-elev);border:1px solid var(--line);border-radius:10px;
+    padding:14px;margin-bottom:12px;}
+  .row{display:flex;gap:8px;}
+  .row > *{flex:1;}
+
+  label{display:block;font-size:11px;color:var(--text-dim);text-transform:uppercase;
+    letter-spacing:.5px;margin-bottom:4px;margin-top:10px;}
+  label:first-child{margin-top:0;}
+  input,select{width:100%;background:var(--bg);border:1px solid var(--line);
+    color:var(--text);padding:10px;border-radius:6px;font-family:inherit;font-size:14px;}
+  input:focus,select:focus{outline:none;border-color:var(--red);}
+
+  .empty{text-align:center;color:var(--text-dim);padding:60px 20px;font-size:13px;line-height:1.6;}
+  .empty .big{font-size:38px;margin-bottom:10px;}
+
+  .item-meta{font-size:11px;color:var(--text-dim);}
+  .price{font-size:14px;font-weight:bold;}
+  .tag{font-size:10px;padding:2px 6px;border-radius:4px;text-transform:uppercase;letter-spacing:.5px;}
+  .tag.up{background:rgba(220,38,38,.2);color:#f87171;}
+
+  .toast{position:fixed;bottom:80px;left:16px;right:16px;max-width:488px;margin:0 auto;
+    background:var(--bg-elev2);border:1px solid var(--red);color:var(--text);
+    padding:12px 16px;border-radius:8px;font-size:13px;z-index:300;
+    opacity:0;transform:translateY(10px);transition:.25s;pointer-events:none;}
+  .toast.show{opacity:1;transform:translateY(0);}
+
+  .section-title{font-size:12px;text-transform:uppercase;letter-spacing:1px;
+    color:var(--text-dim);margin:18px 0 8px;}
+  .section-title:first-child{margin-top:0;}
+
+  .close-x{background:none;border:none;color:var(--text-dim);font-size:20px;cursor:pointer;
+    position:absolute;top:10px;right:14px;}
+  .modal{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:150;display:none;
+    align-items:flex-end;justify-content:center;}
+  .modal.active{display:flex;}
+  .modal-sheet{background:var(--bg-elev);width:100%;max-width:520px;border-radius:16px 16px 0 0;
+    padding:20px;max-height:85vh;overflow-y:auto;position:relative;}
+
+  #loginScreen{position:fixed;inset:0;background:var(--bg);z-index:600;
+    display:none;flex-direction:column;justify-content:center;padding:24px;}
+  #loginScreen.active{display:flex;}
+
+  /* Tela de usuário / PIN, ocupa a tela toda */
+  #authScreen{position:fixed;inset:0;background:var(--bg);z-index:500;
+    display:none;flex-direction:column;padding:24px;overflow-y:auto;}
+  #authScreen.active{display:flex;}
+  #authScreen .wrap{max-width:420px;margin:0 auto;width:100%;flex:1;display:flex;flex-direction:column;justify-content:center;}
+  .user-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+  .user-btn{background:var(--bg-elev);border:1px solid var(--line);border-radius:10px;
+    color:var(--text);padding:18px 10px;font-family:inherit;font-size:14px;cursor:pointer;text-align:center;}
+  .user-btn:active{background:var(--bg-elev2);}
+
+  .pin-dots{display:flex;justify-content:center;gap:14px;margin:24px 0;}
+  .pin-dots span{width:16px;height:16px;border-radius:50%;border:2px solid var(--text-dim);}
+  .pin-dots span.filled{background:var(--red);border-color:var(--red);}
+  .pin-pad{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;max-width:320px;margin:0 auto;width:100%;}
+  .pin-key{background:var(--bg-elev);border:1px solid var(--line);border-radius:50%;
+    color:var(--text);font-family:inherit;font-size:26px;cursor:pointer;
+    aspect-ratio:1;display:flex;align-items:center;justify-content:center;}
+  .pin-key:active{background:var(--bg-elev2);}
+  .pin-key.wide{border-radius:16px;font-size:14px;color:var(--text-dim);border:none;background:none;}
+
+  small.hint{color:var(--text-dim);font-size:11px;display:block;margin-top:4px;}
+</style>
+</head>
+<body>
+<div id="app">
+
+  <header>
+    <h1><span>ZERO!</span> Baixa</h1>
+    <div class="user-chip" id="userChip">Trocar</div>
+  </header>
+
+  <main id="main"></main>
+
+  <nav id="tabs">
+    <button data-tab="baixa" class="active">📤 Dar Baixa</button>
+    <button data-tab="historico">🗂 Histórico</button>
+  </nav>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- Modal de dar baixa / detalhe -->
+<div class="modal" id="baixaModal">
+  <div class="modal-sheet" id="baixaSheet"></div>
+</div>
+
+<!-- Login com a conta do app principal (uma vez só, a sessão fica salva) -->
+<div id="loginScreen">
+  <div style="max-width:420px;margin:0 auto;width:100%">
+    <h1 style="text-align:center;margin-bottom:6px;font-size:18px;letter-spacing:1px;text-transform:uppercase">
+      <span style="color:var(--red);font-weight:bold">ZERO!</span> Baixa
+    </h1>
+    <p style="text-align:center;color:var(--text-dim);font-size:12px;margin-bottom:24px">
+      Entre com a mesma conta do app principal
+    </p>
+    <label>E-mail</label>
+    <input type="email" id="loginEmail" autocomplete="email">
+    <label>Senha</label>
+    <input type="password" id="loginPassword" autocomplete="current-password">
+    <div id="loginError" style="color:#f87171;font-size:12px;margin-top:8px;display:none"></div>
+    <button class="btn" id="loginBtn" style="margin-top:18px">Entrar</button>
+  </div>
+</div>
+
+<!-- Tela de autenticação (escolher usuário + PIN) -->
+<div id="authScreen">
+  <div class="wrap" id="authWrap"></div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+<script>
+/* ============ Firebase (mesmo banco do app principal) ============ */
+const firebaseConfig = {
+  apiKey: "AIzaSyBBqQQkfz5SE_xNJGpWrCcOFm6zZ_wpZnM",
+  authDomain: "controle-notas-160c7.firebaseapp.com",
+  projectId: "controle-notas-160c7",
+  storageBucket: "controle-notas-160c7.firebasestorage.app",
+  messagingSenderId: "543411253293",
+  appId: "1:543411253293:web:6615dc05105358c0c648a4",
+  measurementId: "G-6EYZ00D9LY"
+};
+firebase.initializeApp(firebaseConfig);
+const fsDB = firebase.firestore();
+const fsAuth = firebase.auth();
+fsDB.enablePersistence({synchronizeTabs:true}).catch(err=>{
+  console.warn('Persistência offline não disponível:', err.code);
+});
+
+function sanitizeDocId(key){
+  return (key||'').replace(/[\/\.\#\$\[\]]/g, '_').slice(0, 500) || 'vazio';
+}
+
+async function getAllEstoque(){
+  const snap = await fsDB.collection('estoque').get();
+  return snap.docs.map(d=>({id:d.id, ...d.data()}));
+}
+async function getAllCategorias(){
+  const snap = await fsDB.collection('categorias').get();
+  const map = {};
+  snap.docs.forEach(d=> map[d.data().produtoKey || d.id] = d.data().categoria);
+  return map;
+}
+async function darBaixaEstoque(produtoKey, nome, quantidade, usuario){
+  const ref = fsDB.collection('estoque').doc(sanitizeDocId(produtoKey));
+  await ref.set({
+    produtoKey,
+    nome,
+    quantidade: firebase.firestore.FieldValue.increment(-quantidade),
+    atualizadoEm: new Date().toISOString()
+  }, {merge:true});
+  await fsDB.collection('baixas').add({
+    produtoKey, nome, quantidade,
+    usuarioId: usuario.id, usuarioNome: usuario.nome,
+    criadoEm: new Date().toISOString()
+  });
+}
+async function getAllUsuarios(){
+  const snap = await fsDB.collection('estoqueUsuarios').orderBy('nome').get();
+  return snap.docs.map(d=>({id:d.id, ...d.data()}));
+}
+async function addUsuario(nome, pin){
+  await fsDB.collection('estoqueUsuarios').add({ nome, pin, criadoEm: new Date().toISOString() });
+}
+async function getRecentBaixas(limit){
+  const snap = await fsDB.collection('baixas').orderBy('criadoEm','desc').limit(limit||50).get();
+  return snap.docs.map(d=>({id:d.id, ...d.data()}));
+}
+
+function escapeHtml(s){
+  return (s||'').toString().replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+}
+function formatDateHora(iso){
+  if(!iso) return '';
+  const d = new Date(iso);
+  if(isNaN(d)) return iso;
+  const dd = String(d.getDate()).padStart(2,'0');
+  const mm = String(d.getMonth()+1).padStart(2,'0');
+  const yy = d.getFullYear();
+  const hh = String(d.getHours()).padStart(2,'0');
+  const mi = String(d.getMinutes()).padStart(2,'0');
+  return `${dd}/${mm}/${yy} ${hh}:${mi}`;
+}
+function toast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'), 2600);
+}
+
+/* ============ App State / Nav ============ */
+let currentTab = 'baixa';
+let selectedCategoria = null;
+let currentUser = null;
+const mainEl = document.getElementById('main');
+
+document.querySelectorAll('#tabs button').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('#tabs button').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    if(btn.dataset.tab === 'baixa') selectedCategoria = null;
+    currentTab = btn.dataset.tab;
+    render();
+  });
+});
+document.getElementById('userChip').onclick = ()=> openAuthScreen(true);
+
+async function render(){
+  if(currentTab==='baixa') return renderBaixaTab();
+  if(currentTab==='historico') return renderHistoricoTab();
+}
+
+/* ============ Tab: Dar Baixa ============ */
+function stockRowHtml(e){
+  return `
+    <div class="card" data-key="${escapeHtml(e.produtoKey)}" style="cursor:pointer">
+      <div class="row" style="align-items:center">
+        <div style="flex:2">
+          <div style="font-size:13px">${escapeHtml(e.nome||'(sem nome)')}</div>
+          ${e.categoria && e.categoria!=='Sem categoria' ? `<div class="item-meta">${escapeHtml(e.categoria)}</div>` : ''}
+        </div>
+        <div class="price">${e.quantidade ?? 0}</div>
+      </div>
+    </div>`;
+}
+
+async function renderBaixaTab(){
+  const [estoqueList, categoriasMap] = await Promise.all([getAllEstoque(), getAllCategorias()]);
+  const list = estoqueList.map(e=>({...e, categoria: categoriasMap[e.produtoKey] || 'Sem categoria'}));
+
+  if(!list.length){
+    mainEl.innerHTML = `<div class="empty"><div class="big">📦</div><p>Nenhum produto em estoque ainda.<br>Cadastre pelo app principal primeiro.</p></div>`;
+    return;
+  }
+
+  const byKey = {};
+  list.forEach(e=> byKey[e.produtoKey] = e);
+
+  if(!selectedCategoria){
+    const groups = {};
+    list.forEach(e=>{
+      if(!groups[e.categoria]) groups[e.categoria] = [];
+      groups[e.categoria].push(e);
+    });
+    const categoriaNames = Object.keys(groups).sort((a,b)=>{
+      if(a==='Sem categoria') return 1;
+      if(b==='Sem categoria') return -1;
+      return a.localeCompare(b);
+    });
+    mainEl.innerHTML = `<div class="section-title">${list.length} produtos · ${categoriaNames.length} categoria(s)</div>` +
+      categoriaNames.map(cat=>`
+        <div class="card" data-categoria="${escapeHtml(cat)}" style="cursor:pointer">
+          <div class="row" style="align-items:center">
+            <div style="flex:2">
+              <div style="font-size:14px;font-weight:bold">${escapeHtml(cat)}</div>
+              <div class="item-meta">${groups[cat].length} produto(s)</div>
+            </div>
+            <div style="color:var(--text-dim)">›</div>
+          </div>
+        </div>
+      `).join('');
+    mainEl.querySelectorAll('[data-categoria]').forEach(card=>{
+      card.onclick = ()=>{ selectedCategoria = card.dataset.categoria; render(); };
+    });
+  } else {
+    const filtered = list.filter(e=>e.categoria === selectedCategoria).sort((a,b)=> (a.nome||'').localeCompare(b.nome||''));
+    mainEl.innerHTML = `
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">
+        <button class="btn ghost" id="backToCategories" style="width:auto;padding:8px 12px">‹ Categorias</button>
+        <div class="section-title" style="margin:0">${escapeHtml(selectedCategoria)} (${filtered.length})</div>
+      </div>
+      ${filtered.length ? filtered.map(stockRowHtml).join('') : `<div class="empty"><p>Nenhum produto nessa categoria.</p></div>`}
+    `;
+    document.getElementById('backToCategories').onclick = ()=>{ selectedCategoria = null; render(); };
+    mainEl.querySelectorAll('[data-key]').forEach(card=>{
+      card.onclick = ()=> openBaixaModal(byKey[card.dataset.key]);
+    });
+  }
+}
+
+function openBaixaModal(produto){
+  const modal = document.getElementById('baixaModal');
+  const sheet = document.getElementById('baixaSheet');
+  sheet.innerHTML = `
+    <button class="close-x" id="closeBaixa">✕</button>
+    <div class="section-title">${escapeHtml(produto.nome||'(sem nome)')}</div>
+    <div class="item-meta">Quantidade atual: <b>${produto.quantidade ?? 0}</b></div>
+    <label>Quantidade pra dar baixa</label>
+    <div class="row" style="align-items:center;gap:10px">
+      <button class="btn secondary" id="qtyMinus" style="width:48px">−</button>
+      <input id="f-qtd" type="number" step="1" min="1" value="1" style="text-align:center">
+      <button class="btn secondary" id="qtyPlus" style="width:48px">+</button>
+    </div>
+    <div style="margin-top:16px">
+      <button class="btn" id="confirmBaixaBtn">Confirmar baixa</button>
+    </div>
+    <small class="hint" style="text-align:center;margin-top:10px">Responsável: ${escapeHtml(currentUser.nome)}</small>
+  `;
+  document.getElementById('closeBaixa').onclick = ()=> modal.classList.remove('active');
+  document.getElementById('qtyMinus').onclick = ()=>{
+    const inp = document.getElementById('f-qtd');
+    inp.value = Math.max(1, (parseFloat(inp.value)||1) - 1);
+  };
+  document.getElementById('qtyPlus').onclick = ()=>{
+    const inp = document.getElementById('f-qtd');
+    inp.value = (parseFloat(inp.value)||1) + 1;
+  };
+  document.getElementById('confirmBaixaBtn').onclick = async ()=>{
+    const qtd = parseFloat(document.getElementById('f-qtd').value) || 0;
+    if(qtd <= 0){ toast('Quantidade inválida'); return; }
+    const btn = document.getElementById('confirmBaixaBtn');
+    btn.textContent = 'Salvando...'; btn.disabled = true;
+    try{
+      await darBaixaEstoque(produto.produtoKey, produto.nome, qtd, currentUser);
+      toast(`Baixa de ${qtd} registrada`);
+      modal.classList.remove('active');
+      render();
+    }catch(err){
+      toast('Erro: ' + err.message);
+      btn.textContent = 'Confirmar baixa'; btn.disabled = false;
+    }
+  };
+  modal.classList.add('active');
+}
+
+/* ============ Tab: Histórico ============ */
+async function renderHistoricoTab(){
+  const baixas = await getRecentBaixas(100);
+  if(!baixas.length){
+    mainEl.innerHTML = `<div class="empty"><div class="big">🗂</div><p>Nenhuma baixa registrada ainda.</p></div>`;
+    return;
+  }
+  mainEl.innerHTML = `<div class="section-title">Últimas ${baixas.length} baixas</div>` +
+    baixas.map(b=>`
+      <div class="card">
+        <div class="row" style="align-items:center">
+          <div style="flex:2">
+            <div style="font-size:13px">${escapeHtml(b.nome||'(sem nome)')}</div>
+            <div class="item-meta">${formatDateHora(b.criadoEm)} · ${escapeHtml(b.usuarioNome||'?')}</div>
+          </div>
+          <div class="price">-${b.quantidade}</div>
+        </div>
+      </div>
+    `).join('');
+}
+
+/* ============ Autenticação por usuário + PIN ============ */
+let pendingPin = '';
+let pendingUser = null;
+
+function openAuthScreen(allowCancel){
+  const screen = document.getElementById('authScreen');
+  screen.classList.add('active');
+  renderUserPicker(allowCancel);
+}
+function closeAuthScreen(){
+  document.getElementById('authScreen').classList.remove('active');
+}
+
+async function renderUserPicker(allowCancel){
+  const wrap = document.getElementById('authWrap');
+  wrap.innerHTML = `<p class="item-meta" style="text-align:center">Carregando usuários...</p>`;
+  const usuarios = await getAllUsuarios();
+  wrap.innerHTML = `
+    <div class="section-title" style="text-align:center">Quem é você?</div>
+    <div class="user-grid">
+      ${usuarios.map(u=>`<button class="user-btn" data-user-id="${escapeHtml(u.id)}">${escapeHtml(u.nome)}</button>`).join('')}
+      <button class="user-btn" id="newUserBtn" style="border-style:dashed;color:var(--text-dim)">+ Novo usuário</button>
+    </div>
+    ${allowCancel ? `<button class="btn ghost" id="cancelAuthBtn" style="margin-top:20px">Cancelar</button>` : ''}
+  `;
+  wrap.querySelectorAll('[data-user-id]').forEach(btn=>{
+    const u = usuarios.find(x=>x.id===btn.dataset.userId);
+    btn.onclick = ()=> renderPinPad(u);
+  });
+  document.getElementById('newUserBtn').onclick = renderNewUserForm;
+  if(allowCancel) document.getElementById('cancelAuthBtn').onclick = closeAuthScreen;
+}
+
+function renderPinPad(user){
+  pendingUser = user;
+  pendingPin = '';
+  const wrap = document.getElementById('authWrap');
+  wrap.innerHTML = `
+    <div class="section-title" style="text-align:center">${escapeHtml(user.nome)}</div>
+    <p class="item-meta" style="text-align:center">Digite seu PIN de 4 dígitos</p>
+    <div class="pin-dots" id="pinDots">
+      <span></span><span></span><span></span><span></span>
+    </div>
+    <div class="pin-pad" id="pinPad">
+      ${[1,2,3,4,5,6,7,8,9].map(n=>`<button class="pin-key" data-digit="${n}">${n}</button>`).join('')}
+      <button class="pin-key wide" id="pinBack">‹ apagar</button>
+      <button class="pin-key" data-digit="0">0</button>
+      <button class="pin-key wide" id="pinCancel">voltar</button>
+    </div>
+  `;
+  document.querySelectorAll('[data-digit]').forEach(btn=>{
+    btn.onclick = ()=> pinDigit(btn.dataset.digit);
+  });
+  document.getElementById('pinBack').onclick = ()=>{
+    pendingPin = pendingPin.slice(0,-1);
+    updatePinDots();
+  };
+  document.getElementById('pinCancel').onclick = ()=> renderUserPicker(true);
+}
+
+function updatePinDots(){
+  document.querySelectorAll('#pinDots span').forEach((dot,i)=>{
+    dot.classList.toggle('filled', i < pendingPin.length);
+  });
+}
+
+async function pinDigit(d){
+  if(pendingPin.length >= 4) return;
+  pendingPin += d;
+  updatePinDots();
+  if(pendingPin.length === 4){
+    if(pendingPin === pendingUser.pin){
+      currentUser = pendingUser;
+      document.getElementById('userChip').innerHTML = `Trocar<b>${escapeHtml(currentUser.nome)}</b>`;
+      closeAuthScreen();
+      selectedCategoria = null;
+      render();
+    } else {
+      toast('PIN incorreto');
+      pendingPin = '';
+      setTimeout(updatePinDots, 150);
+    }
+  }
+}
+
+function renderNewUserForm(){
+  const wrap = document.getElementById('authWrap');
+  wrap.innerHTML = `
+    <div class="section-title" style="text-align:center">Novo usuário</div>
+    <label>Nome</label>
+    <input id="f-novo-nome" placeholder="Nome de quem vai usar">
+    <label>PIN de 4 dígitos</label>
+    <input id="f-novo-pin" type="password" inputmode="numeric" maxlength="4" placeholder="0000">
+    <label>Confirmar PIN</label>
+    <input id="f-novo-pin2" type="password" inputmode="numeric" maxlength="4" placeholder="0000">
+    <div style="margin-top:16px">
+      <button class="btn" id="saveNewUserBtn">Cadastrar</button>
+    </div>
+    <button class="btn ghost" id="cancelNewUserBtn" style="margin-top:10px">Voltar</button>
+  `;
+  document.getElementById('cancelNewUserBtn').onclick = ()=> renderUserPicker(true);
+  document.getElementById('saveNewUserBtn').onclick = async ()=>{
+    const nome = document.getElementById('f-novo-nome').value.trim();
+    const pin = document.getElementById('f-novo-pin').value.trim();
+    const pin2 = document.getElementById('f-novo-pin2').value.trim();
+    if(!nome){ toast('Digite o nome'); return; }
+    if(!/^\d{4}$/.test(pin)){ toast('O PIN precisa ter exatamente 4 números'); return; }
+    if(pin !== pin2){ toast('Os PINs não coincidem'); return; }
+    try{
+      await addUsuario(nome, pin);
+      toast('Usuário cadastrado');
+      renderUserPicker(true);
+    }catch(err){
+      toast('Erro ao cadastrar: ' + err.message);
+    }
+  };
+}
+
+/* ============ Login (mesma conta do app principal) ============ */
+function showLoginScreen(){
+  document.getElementById('loginScreen').classList.add('active');
+}
+function hideLoginScreen(){
+  document.getElementById('loginScreen').classList.remove('active');
+}
+function showLoginError(msg){
+  const el = document.getElementById('loginError');
+  el.textContent = msg;
+  el.style.display = 'block';
+}
+function translateAuthError(code){
+  const map = {
+    'auth/invalid-email': 'E-mail inválido',
+    'auth/user-not-found': 'Usuário não encontrado',
+    'auth/wrong-password': 'Senha incorreta',
+    'auth/invalid-credential': 'E-mail ou senha incorretos',
+    'auth/network-request-failed': 'Sem conexão com a internet',
+  };
+  return map[code] || 'Erro: ' + code;
+}
+document.getElementById('loginBtn').onclick = async ()=>{
+  const email = document.getElementById('loginEmail').value.trim();
+  const pass = document.getElementById('loginPassword').value;
+  document.getElementById('loginError').style.display = 'none';
+  if(!email || !pass){ showLoginError('Preencha e-mail e senha'); return; }
+  try{
+    await fsAuth.signInWithEmailAndPassword(email, pass);
+  }catch(err){
+    showLoginError(translateAuthError(err.code));
+  }
+};
+
+/* ============ Init ============ */
+(function init(){
+  if('serviceWorker' in navigator){
+    navigator.serviceWorker.register('./sw.js').catch(()=>{});
+  }
+  fsAuth.onAuthStateChanged((user)=>{
+    if(user){
+      hideLoginScreen();
+      openAuthScreen(false);
+    } else {
+      showLoginScreen();
+    }
+  });
+})();
+</script>
+</body>
+</html>
