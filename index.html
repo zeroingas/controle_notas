@@ -188,6 +188,16 @@
     </div>
 
     <div style="margin-top:24px;border-top:1px solid var(--line);padding-top:16px">
+      <label>Importar produtos por planilha</label>
+      <small class="hint">Baixe o modelo, preencha com seus produtos (nome padronizado, categoria e estoque mínimo) e importe. Todo produto da planilha entra no estoque zerado — depois você ajusta a quantidade certa uma vez e vai só somando com as notas.</small>
+      <div class="row" style="margin-top:10px">
+        <button class="btn secondary" id="downloadModeloBtn">Baixar modelo (.xlsx)</button>
+        <button class="btn secondary" id="importProdutosBtn">Importar planilha</button>
+      </div>
+      <input type="file" id="importProdutosFile" accept=".xlsx" style="display:none">
+    </div>
+
+    <div style="margin-top:24px;border-top:1px solid var(--line);padding-top:16px">
       <label>Nomes padronizados de produtos</label>
       <small class="hint">Quando você corrige o nome de um produto na conferência, o app lembra disso pras próximas notas com o mesmo texto bruto.</small>
       <button class="btn secondary" id="manageAliasesBtn" style="margin-top:10px">Ver/editar padrões</button>
@@ -1894,6 +1904,101 @@ async function exportToExcel(){
   }
 }
 document.getElementById('exportExcelBtn').onclick = exportToExcel;
+
+/* ============ Importar produtos por planilha ============ */
+document.getElementById('downloadModeloBtn').onclick = async ()=>{
+  const btn = document.getElementById('downloadModeloBtn');
+  const originalText = btn.textContent;
+  btn.textContent = 'Gerando...';
+  btn.disabled = true;
+  try{
+    await loadExcelJs();
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet('Produtos');
+    ws.columns = [
+      { header: 'Nome padronizado', key: 'nome', width: 34 },
+      { header: 'Categoria', key: 'categoria', width: 20 },
+      { header: 'Estoque mínimo', key: 'minimo', width: 16 },
+    ];
+    ws.getRow(1).eachCell(cell=>{ cell.fill = HEADER_FILL; cell.font = HEADER_FONT; });
+    ws.views = [{ state: 'frozen', ySplit: 1 }];
+    ws.autoFilter = 'A1:C1';
+
+    const info = wb.addWorksheet('Instruções');
+    info.getColumn(1).width = 90;
+    [
+      'Como preencher esta planilha:',
+      '',
+      '- Nome padronizado: o nome do produto exatamente como você já usa no app (Tipo/Marca/Modelo/Litragem).',
+      '- Categoria: opcional. Se preencher, o produto já entra categorizado.',
+      '- Estoque mínimo: opcional. Quantidade que dispara o aviso de estoque baixo.',
+      '',
+      'Atenção: ao importar, TODO produto da planilha entra no estoque com quantidade ZERADA,',
+      'mesmo que já exista no app com uma quantidade diferente (a quantidade existente é sobrescrita para 0).',
+      'Depois da importação, ajuste a quantidade certa de cada produto uma vez no app (aba Estoque);',
+      'a partir daí, as notas fiscais vão somando normalmente.',
+    ].forEach((line,i)=>{ info.getCell(i+1, 1).value = line; });
+
+    const buffer = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'modelo-produtos.xlsx';
+    a.click();
+    URL.revokeObjectURL(url);
+  }catch(err){
+    toast('Erro ao gerar modelo: ' + err.message);
+  }finally{
+    btn.textContent = originalText;
+    btn.disabled = false;
+  }
+};
+
+document.getElementById('importProdutosBtn').onclick = ()=> document.getElementById('importProdutosFile').click();
+document.getElementById('importProdutosFile').onchange = async (e)=>{
+  const file = e.target.files[0];
+  if(!file) return;
+  const btn = document.getElementById('importProdutosBtn');
+  const originalText = btn.textContent;
+  btn.textContent = 'Importando...';
+  btn.disabled = true;
+  try{
+    await loadExcelJs();
+    const buffer = await file.arrayBuffer();
+    const wb = new ExcelJS.Workbook();
+    await wb.xlsx.load(buffer);
+    const ws = wb.getWorksheet('Produtos') || wb.worksheets[0];
+    if(!ws) throw new Error('Planilha sem abas');
+
+    const rows = [];
+    ws.eachRow((row, rowNumber)=>{
+      if(rowNumber === 1) return; // cabeçalho
+      const nome = (row.getCell(1).text || '').trim();
+      if(!nome) return;
+      const categoria = (row.getCell(2).text || '').trim();
+      const minimoRaw = (row.getCell(3).text || '').trim();
+      const minimo = minimoRaw ? Number(minimoRaw.replace(',', '.')) : null;
+      rows.push({ produtoKey: normalizeKey(nome), nome, categoria, minimo });
+    });
+
+    for(const r of rows){
+      await ajustarEstoque(r.produtoKey, 0, r.nome);
+      if(r.categoria) await setCategoria(r.produtoKey, r.categoria);
+      if(r.minimo !== null && !isNaN(r.minimo)) await setEstoqueMinimo(r.produtoKey, r.minimo, r.nome);
+    }
+
+    toast(`${rows.length} produto(s) importado(s) com estoque zerado`);
+    document.getElementById('settingsModal').classList.remove('active');
+    render();
+  }catch(err){
+    toast('Erro ao importar planilha: ' + err.message);
+  }finally{
+    btn.textContent = originalText;
+    btn.disabled = false;
+    e.target.value = '';
+  }
+};
 
 /* ============ Auth / Login ============ */
 function showLoginScreen(){
