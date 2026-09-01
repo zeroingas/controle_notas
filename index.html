@@ -136,7 +136,6 @@
     <button data-tab="capture" class="active">📷 Nota</button>
     <button data-tab="history">🗂 Histórico</button>
     <button data-tab="products">📦 Produtos</button>
-    <button data-tab="suppliers">🏬 Fornecedores</button>
   </nav>
 
 </div>
@@ -259,33 +258,6 @@ async function addNota(nota){
 async function addItem(item){
   await fsDB.collection('itens').add(item);
 }
-function fornecedorDocId(nome){
-  // Firestore doc IDs can't contain '/'. A chave é normalizada (maiúsculas, espaços
-  // colapsados) pra não criar um fornecedor duplicado a cada pequena variação de
-  // leitura entre notas (ex: "Distribuidora ABC" vs "DISTRIBUIDORA  ABC").
-  return encodeURIComponent(normalizeKey(nome)).slice(0, 300);
-}
-async function upsertFornecedor(nome, cnpj){
-  const ref = fsDB.collection('fornecedores').doc(fornecedorDocId(nome));
-  const doc = await ref.get();
-  if(doc.exists){
-    const data = doc.data();
-    await ref.update({
-      nome,
-      compras: (data.compras||0) + 1,
-      ultimaCompra: new Date().toISOString(),
-      cnpj: cnpj || data.cnpj || ''
-    });
-  } else {
-    await ref.set({nome, cnpj: cnpj||'', compras:1, ultimaCompra: new Date().toISOString()});
-  }
-}
-async function upsertFornecedorRaw(f){
-  await fsDB.collection('fornecedores').doc(fornecedorDocId(f.nome)).set(f, {merge:true});
-}
-async function deleteFornecedor(nome){
-  await fsDB.collection('fornecedores').doc(fornecedorDocId(nome)).delete();
-}
 async function getAllNotas(){
   const snap = await fsDB.collection('notas').get();
   return snap.docs.map(d=>({id:d.id, ...d.data()}));
@@ -297,10 +269,6 @@ async function getAllItens(){
 async function getItensByNota(notaId){
   const snap = await fsDB.collection('itens').where('notaId','==',notaId).get();
   return snap.docs.map(d=>({id:d.id, ...d.data()}));
-}
-async function getAllFornecedores(){
-  const snap = await fsDB.collection('fornecedores').get();
-  return snap.docs.map(d=>d.data());
 }
 async function getItensByProdutoKey(key){
   const snap = await fsDB.collection('itens').where('produtoKey','==',key).get();
@@ -414,7 +382,6 @@ async function render(){
   if(currentTab==='history') return renderHistory();
   if(currentTab==='products') return renderProducts();
   if(currentTab==='stock') return renderStock();
-  if(currentTab==='suppliers') return renderSuppliers();
 }
 
 /* ============ Tab: Capture ============ */
@@ -988,7 +955,6 @@ async function openReview(parsed, base64){
         });
         await registrarEntradaEstoque(produtoKey, item.descricao, item.quantidade);
       }
-      await upsertFornecedor(nota.fornecedor, nota.cnpj);
 
       modal.classList.remove('active');
       toast(`Nota salva: ${finalItems.length} itens registrados`);
@@ -1351,52 +1317,6 @@ async function recalcularEstoqueDoHistorico(){
   }
 }
 
-/* ============ Tab: Suppliers ============ */
-async function renderSuppliers(){
-  const fornecedores = await getAllFornecedores();
-  if(!fornecedores.length){
-    mainEl.innerHTML = `<div class="empty"><div class="big">🏬</div><p>Nenhum fornecedor registrado ainda.</p></div>`;
-    return;
-  }
-  fornecedores.sort((a,b)=> new Date(b.ultimaCompra)-new Date(a.ultimaCompra));
-
-  function renderList(){
-    if(!fornecedores.length){
-      mainEl.innerHTML = `<div class="empty"><div class="big">🏬</div><p>Nenhum fornecedor registrado ainda.</p></div>`;
-      return;
-    }
-    mainEl.innerHTML = fornecedores.map(f=>`
-      <div class="card">
-        <div class="row" style="align-items:center">
-          <div style="flex:1">
-            <div style="font-size:14px;font-weight:bold">${escapeHtml(f.nome)}</div>
-            ${f.cnpj ? `<div class="item-meta">${escapeHtml(f.cnpj)}</div>` : ''}
-            <div class="item-meta">${f.compras} compra(s) · última em ${formatDateBR(f.ultimaCompra)}</div>
-          </div>
-          <button class="remove-item" data-del-fornecedor="${escapeHtml(f.nome)}">🗑</button>
-        </div>
-      </div>
-    `).join('');
-
-    mainEl.querySelectorAll('[data-del-fornecedor]').forEach(btn=>{
-      btn.onclick = async ()=>{
-        const nome = btn.dataset.delFornecedor;
-        if(!confirm(`Excluir "${nome}" da lista de fornecedores? Isso não apaga as notas já registradas com esse fornecedor.`)) return;
-        try{
-          await deleteFornecedor(nome);
-          const idx = fornecedores.findIndex(f=>f.nome === nome);
-          if(idx > -1) fornecedores.splice(idx, 1);
-          toast('Fornecedor excluído');
-          renderList();
-        }catch(err){
-          toast('Erro ao excluir: ' + err.message);
-        }
-      };
-    });
-  }
-  renderList();
-}
-
 /* ============ Settings ============ */
 function openSettings(){
   document.getElementById('apiKeyInput').value = getApiKey();
@@ -1489,11 +1409,10 @@ document.getElementById('manageAliasesBtn').onclick = openAliasesManager;
 document.getElementById('exportBtn').onclick = async ()=>{
   const notas = await getAllNotas();
   const itens = await getAllItens();
-  const fornecedores = await getAllFornecedores();
   const estoque = await getAllEstoque();
   const categoriasMap = await getAllCategorias();
   const categorias = Object.entries(categoriasMap).map(([produtoKey, categoria])=>({produtoKey, categoria}));
-  const blob = new Blob([JSON.stringify({notas,itens,fornecedores,estoque,categorias}, null, 2)], {type:'application/json'});
+  const blob = new Blob([JSON.stringify({notas,itens,estoque,categorias}, null, 2)], {type:'application/json'});
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url; a.download = `notas-backup-${new Date().toISOString().slice(0,10)}.json`;
@@ -1521,9 +1440,6 @@ document.getElementById('importFile').onchange = async (e)=>{
       const { id, notaId, ...itemData } = i;
       const mappedNotaId = idMap.hasOwnProperty(notaId) ? idMap[notaId] : notaId;
       await addItem({ ...itemData, notaId: mappedNotaId });
-    }
-    for(const f of (data.fornecedores||[])){
-      await upsertFornecedorRaw(f);
     }
     for(const e of (data.estoque||[])){
       await upsertEstoqueRaw(e);
@@ -1578,7 +1494,7 @@ async function exportToExcel(){
   btn.disabled = true;
   try{
     await loadExcelJs();
-    const [notas, itens, fornecedores] = await Promise.all([getAllNotas(), getAllItens(), getAllFornecedores()]);
+    const [notas, itens] = await Promise.all([getAllNotas(), getAllItens()]);
 
     if(!notas.length){
       toast('Nenhuma nota registrada ainda pra exportar');
@@ -1713,25 +1629,6 @@ async function exportToExcel(){
         chave: formatChaveAcesso(n.chaveAcesso),
       });
       row.getCell('total').numFmt = 'R$ #,##0.00';
-    });
-
-    /* --- Aba: Fornecedores --- */
-    const wsForn = wb.addWorksheet('Fornecedores');
-    wsForn.columns = [
-      { header:'Fornecedor', key:'nome', width:28 },
-      { header:'CNPJ', key:'cnpj', width:20 },
-      { header:'Nº Compras', key:'compras', width:12 },
-      { header:'Última Compra', key:'ultima', width:16 },
-    ];
-    styleHeaderRow(wsForn.getRow(1));
-    wsForn.views = [{ state:'frozen', ySplit:1 }];
-    fornecedores.slice().sort((a,b)=> a.nome.localeCompare(b.nome)).forEach(f=>{
-      wsForn.addRow({
-        nome: f.nome,
-        cnpj: f.cnpj,
-        compras: f.compras,
-        ultima: formatDateBR(f.ultimaCompra),
-      });
     });
 
     const buffer = await wb.xlsx.writeBuffer();
