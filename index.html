@@ -375,6 +375,60 @@ document.querySelectorAll('#tabs button').forEach(btn=>{
   });
 });
 
+/* ============ Botão voltar do Android ============ */
+// Fecha telas/modais internos primeiro; só deixa o app minimizar/fechar
+// quando não há mais nada pra "voltar" (aí precisa apertar 2x).
+let backExitWarned = false;
+let backExitTimer = null;
+function pushBackGuard(){
+  history.pushState({appNav:true}, '', location.href);
+}
+pushBackGuard();
+
+window.addEventListener('popstate', ()=>{
+  for(const id of ['padronizarModal','aliasesModal','reviewModal','settingsModal']){
+    const el = document.getElementById(id);
+    if(el && el.classList.contains('active')){
+      el.classList.remove('active');
+      pushBackGuard();
+      return;
+    }
+  }
+  if(document.getElementById('camWrap').classList.contains('active')){
+    closeCamera();
+    pushBackGuard();
+    return;
+  }
+  if(currentTab==='products' && selectedCategoria){
+    selectedCategoria = null;
+    render();
+    pushBackGuard();
+    return;
+  }
+  if(currentTab==='stock' && selectedEstoqueCategoria){
+    selectedEstoqueCategoria = null;
+    render();
+    pushBackGuard();
+    return;
+  }
+  if(currentTab !== 'capture'){
+    document.querySelectorAll('#tabs button').forEach(b=>b.classList.remove('active'));
+    document.querySelector('#tabs button[data-tab="capture"]').classList.add('active');
+    currentTab = 'capture';
+    render();
+    pushBackGuard();
+    return;
+  }
+  // Já está na tela inicial, sem nada aberto: avisa e só sai de verdade na próxima vez
+  if(!backExitWarned){
+    backExitWarned = true;
+    toast('Toque voltar de novo para sair');
+    clearTimeout(backExitTimer);
+    backExitTimer = setTimeout(()=>{ backExitWarned = false; }, 2000);
+    // não empurra um novo estado — o próximo "voltar" sai do app de verdade
+  }
+});
+
 function toast(msg){
   const t = document.getElementById('toast');
   t.textContent = msg;
