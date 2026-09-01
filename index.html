@@ -207,6 +207,12 @@
   </div>
 </div>
 
+<!-- Padronizar nome do item (dentro da conferência da nota) -->
+<div class="modal" id="padronizarModal" style="z-index:160">
+  <div class="modal-sheet" id="padronizarSheet">
+  </div>
+</div>
+
 <!-- Login Screen -->
 <div id="loginScreen" style="position:fixed;inset:0;background:var(--bg);z-index:500;
   display:none;flex-direction:column;justify-content:center;padding:24px;">
@@ -803,6 +809,7 @@ async function openReview(parsed, base64){
         <div style="flex:3">
           <label>Produto</label>
           <input class="f-desc" value="${escapeHtml(item.descricao)}">
+          <button type="button" class="btn ghost" data-padronizar="${idx}" style="width:auto;padding:4px 8px;font-size:10px;margin-top:4px">🏷 Padronizar</button>
         </div>
         <button class="remove-item" data-remove="${idx}">🗑</button>
       </div>
@@ -888,6 +895,9 @@ async function openReview(parsed, base64){
         refreshItemsDom();
       };
     });
+    document.querySelectorAll('[data-padronizar]').forEach(b=>{
+      b.onclick = ()=> openPadronizarModal(parseInt(b.dataset.padronizar));
+    });
   }
   bindItemEvents();
 
@@ -966,6 +976,62 @@ async function openReview(parsed, base64){
       saveBtn.textContent = originalText;
       saveBtn.disabled = false;
     }
+  };
+
+  modal.classList.add('active');
+}
+
+function openPadronizarModal(idx){
+  const modal = document.getElementById('padronizarModal');
+  const sheet = document.getElementById('padronizarSheet');
+  sheet.innerHTML = `
+    <button class="close-x" id="closePadronizar">✕</button>
+    <div class="section-title">Padronizar nome</div>
+    <div class="row">
+      <div>
+        <label style="margin-top:0">Tipo (4)</label>
+        <input id="pTipo" maxlength="4" placeholder="CERV">
+      </div>
+      <div>
+        <label style="margin-top:0">Marca (8)</label>
+        <input id="pMarca" maxlength="8" placeholder="HEINEKEN">
+      </div>
+    </div>
+    <div class="row">
+      <div>
+        <label style="margin-top:0">Modelo (6)</label>
+        <input id="pModelo" maxlength="6" placeholder="ZERO">
+      </div>
+      <div>
+        <label style="margin-top:0">Litragem/Peso</label>
+        <input id="pLitragem" placeholder="350ML">
+      </div>
+    </div>
+    <small class="hint">Nome final: <b id="pPreview">—</b></small>
+    <button class="btn" id="confirmPadronizarBtn" style="margin-top:12px">Usar esse nome</button>
+  `;
+  document.getElementById('closePadronizar').onclick = ()=> modal.classList.remove('active');
+
+  function buildName(){
+    const tipo = document.getElementById('pTipo').value.trim().toUpperCase().slice(0,4);
+    const marca = document.getElementById('pMarca').value.trim().toUpperCase().slice(0,8);
+    const modelo = document.getElementById('pModelo').value.trim().toUpperCase().slice(0,6);
+    const litragem = document.getElementById('pLitragem').value.trim().toUpperCase();
+    return [tipo, marca, modelo, litragem].filter(Boolean).join(' ');
+  }
+  ['pTipo','pMarca','pModelo','pLitragem'].forEach(id=>{
+    document.getElementById(id).oninput = (e)=>{
+      e.target.value = e.target.value.toUpperCase();
+      document.getElementById('pPreview').textContent = buildName() || '—';
+    };
+  });
+
+  document.getElementById('confirmPadronizarBtn').onclick = ()=>{
+    const nome = buildName();
+    if(!nome){ toast('Preencha pelo menos um campo'); return; }
+    const input = document.querySelector(`[data-item-idx="${idx}"] .f-desc`);
+    if(input) input.value = nome;
+    modal.classList.remove('active');
   };
 
   modal.classList.add('active');
