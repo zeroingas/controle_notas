@@ -1442,7 +1442,27 @@ async function openAliasesManager(){
       <label>Texto bruto (como aparece na nota)</label>
       <input id="aliasRawInput" placeholder="Ex: COQ CATU SEL ACAI">
       <label>Nome padronizado</label>
-      <input id="aliasCanonicalInput" placeholder="Ex: Catuaba Selvagem 900ml">
+      <div class="row">
+        <div>
+          <label style="margin-top:0">Tipo (4)</label>
+          <input id="aliasTipo" maxlength="4" placeholder="CERV">
+        </div>
+        <div>
+          <label style="margin-top:0">Marca (8)</label>
+          <input id="aliasMarca" maxlength="8" placeholder="HEINEKEN">
+        </div>
+      </div>
+      <div class="row">
+        <div>
+          <label style="margin-top:0">Modelo (6)</label>
+          <input id="aliasModelo" maxlength="6" placeholder="ZERO">
+        </div>
+        <div>
+          <label style="margin-top:0">Litragem/Peso</label>
+          <input id="aliasLitragem" placeholder="350ML">
+        </div>
+      </div>
+      <small class="hint">Nome final: <b id="aliasPreview">—</b></small>
       <button class="btn" id="addAliasBtn" style="margin-top:12px">Adicionar</button>`;
 
     document.querySelectorAll('#aliasesModal [data-close]').forEach(b=>{
@@ -1462,10 +1482,25 @@ async function openAliasesManager(){
         }
       };
     });
+
+    function buildCanonicalName(){
+      const tipo = document.getElementById('aliasTipo').value.trim().toUpperCase().slice(0,4);
+      const marca = document.getElementById('aliasMarca').value.trim().toUpperCase().slice(0,8);
+      const modelo = document.getElementById('aliasModelo').value.trim().toUpperCase().slice(0,6);
+      const litragem = document.getElementById('aliasLitragem').value.trim().toUpperCase();
+      return [tipo, marca, modelo, litragem].filter(Boolean).join(' ');
+    }
+    ['aliasTipo','aliasMarca','aliasModelo','aliasLitragem'].forEach(id=>{
+      document.getElementById(id).oninput = (e)=>{
+        e.target.value = e.target.value.toUpperCase();
+        document.getElementById('aliasPreview').textContent = buildCanonicalName() || '—';
+      };
+    });
+
     document.getElementById('addAliasBtn').onclick = async ()=>{
       const raw = document.getElementById('aliasRawInput').value.trim();
-      const canonical = document.getElementById('aliasCanonicalInput').value.trim();
-      if(!raw || !canonical){ toast('Preencha os dois campos'); return; }
+      const canonical = buildCanonicalName();
+      if(!raw || !canonical){ toast('Preencha o texto bruto e pelo menos um campo do nome padronizado'); return; }
       try{
         const rawKey = normalizeKey(raw);
         await upsertAlias(rawKey, canonical);
