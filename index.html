@@ -29,10 +29,10 @@
   header{padding:16px 16px 12px;border-bottom:2px solid var(--red-dim);
     display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;
     background:var(--bg);z-index:10;}
-  header h1{font-size:16px;letter-spacing:1px;margin:0;text-transform:uppercase;color:var(--text);}
+  header h1{font-size:18px;letter-spacing:1px;margin:0;text-transform:uppercase;color:var(--text);}
   header h1 span{color:var(--red);font-weight:bold;}
   #settingsBtn{background:none;border:1px solid var(--line);color:var(--text-dim);
-    width:34px;height:34px;border-radius:6px;font-size:16px;cursor:pointer;}
+    width:34px;height:34px;border-radius:6px;font-size:18px;cursor:pointer;}
 
   main{flex:1;padding:14px 14px 90px;display:flex;flex-direction:column;justify-content:center;}
   main.top-align{justify-content:flex-start;}
@@ -40,12 +40,12 @@
   nav#tabs{position:fixed;bottom:0;left:0;right:0;max-width:520px;margin:0 auto;
     display:flex;background:var(--bg-elev);border-top:1px solid var(--line);z-index:10;}
   nav#tabs button{flex:1;background:none;border:none;color:var(--text-dim);
-    padding:12px 4px 10px;font-family:inherit;font-size:11px;letter-spacing:.5px;
+    padding:12px 4px 10px;font-family:inherit;font-size:13px;letter-spacing:.5px;
     text-transform:uppercase;cursor:pointer;border-top:2px solid transparent;}
   nav#tabs button.active{color:var(--red);border-top:2px solid var(--red);}
 
   .btn{display:inline-block;background:var(--red);color:#fff;border:none;
-    padding:13px 18px;border-radius:8px;font-family:inherit;font-size:14px;
+    padding:13px 18px;border-radius:8px;font-family:inherit;font-size:16px;
     letter-spacing:.5px;text-transform:uppercase;cursor:pointer;width:100%;text-align:center;}
   .btn:active{background:#b91c1c;}
   .btn.secondary{background:var(--bg-elev2);color:var(--text);border:1px solid var(--line);}
@@ -59,23 +59,23 @@
   .row{display:flex;gap:8px;}
   .row > *{flex:1;}
 
-  label{display:block;font-size:11px;color:var(--text-dim);text-transform:uppercase;
+  label{display:block;font-size:13px;color:var(--text-dim);text-transform:uppercase;
     letter-spacing:.5px;margin-bottom:4px;margin-top:10px;}
   label:first-child{margin-top:0;}
   input,select,textarea{width:100%;background:var(--bg);border:1px solid var(--line);
-    color:var(--text);padding:10px;border-radius:6px;font-family:inherit;font-size:14px;}
+    color:var(--text);padding:10px;border-radius:6px;font-family:inherit;font-size:16px;}
   input:focus,select:focus,textarea:focus{outline:none;border-color:var(--red);}
 
-  .empty{text-align:center;color:var(--text-dim);padding:60px 20px;font-size:13px;line-height:1.6;}
-  .empty .big{font-size:38px;margin-bottom:10px;}
+  .empty{text-align:center;color:var(--text-dim);padding:60px 20px;font-size:15px;line-height:1.6;}
+  .empty .big{font-size:42px;margin-bottom:10px;}
 
   .item-row{display:flex;justify-content:space-between;align-items:center;
     padding:10px 0;border-bottom:1px solid var(--line);gap:8px;}
   .item-row:last-child{border-bottom:none;}
-  .item-name{font-size:13px;flex:1;}
-  .item-meta{font-size:11px;color:var(--text-dim);}
-  .price{font-size:14px;font-weight:bold;}
-  .tag{font-size:10px;padding:2px 6px;border-radius:4px;text-transform:uppercase;letter-spacing:.5px;}
+  .item-name{font-size:15px;flex:1;}
+  .item-meta{font-size:13px;color:var(--text-dim);}
+  .price{font-size:16px;font-weight:bold;}
+  .tag{font-size:12px;padding:2px 6px;border-radius:4px;text-transform:uppercase;letter-spacing:.5px;}
   .tag.up{background:rgba(220,38,38,.2);color:#f87171;}
   .tag.down{background:rgba(22,163,74,.2);color:#4ade80;}
   .tag.same{background:rgba(154,154,154,.15);color:var(--text-dim);}
@@ -90,7 +90,7 @@
   #shutterBtn{width:70px;height:70px;border-radius:50%;background:#fff;border:4px solid var(--red);
     cursor:pointer;}
   #camCancel{background:none;border:1px solid #555;color:#fff;width:44px;height:44px;
-    border-radius:50%;font-size:18px;cursor:pointer;}
+    border-radius:50%;font-size:20px;cursor:pointer;}
 
   #processingOverlay{position:fixed;inset:0;background:rgba(0,0,0,.9);z-index:200;
     display:none;flex-direction:column;align-items:center;justify-content:center;gap:16px;}
@@ -98,19 +98,19 @@
   .spinner{width:40px;height:40px;border:3px solid var(--line);border-top-color:var(--red);
     border-radius:50%;animation:spin 0.8s linear infinite;}
   @keyframes spin{to{transform:rotate(360deg);}}
-  #processingOverlay p{color:var(--text-dim);font-size:13px;}
+  #processingOverlay p{color:var(--text-dim);font-size:15px;}
 
   .toast{position:fixed;bottom:80px;left:16px;right:16px;max-width:488px;margin:0 auto;
     background:var(--bg-elev2);border:1px solid var(--red);color:var(--text);
-    padding:12px 16px;border-radius:8px;font-size:13px;z-index:300;
+    padding:12px 16px;border-radius:8px;font-size:15px;z-index:300;
     opacity:0;transform:translateY(10px);transition:.25s;pointer-events:none;}
   .toast.show{opacity:1;transform:translateY(0);}
 
-  .section-title{font-size:12px;text-transform:uppercase;letter-spacing:1px;
+  .section-title{font-size:14px;text-transform:uppercase;letter-spacing:1px;
     color:var(--text-dim);margin:18px 0 8px;}
   .section-title:first-child{margin-top:0;}
 
-  .close-x{background:none;border:none;color:var(--text-dim);font-size:20px;cursor:pointer;
+  .close-x{background:none;border:none;color:var(--text-dim);font-size:22px;cursor:pointer;
     position:absolute;top:10px;right:14px;}
   .modal{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:150;display:none;
     align-items:flex-end;justify-content:center;}
@@ -118,8 +118,8 @@
   .modal-sheet{background:var(--bg-elev);width:100%;max-width:520px;border-radius:16px 16px 0 0;
     padding:20px;max-height:85vh;overflow-y:auto;position:relative;}
 
-  .remove-item{background:none;border:none;color:var(--red);font-size:18px;cursor:pointer;padding:0 4px;}
-  small.hint{color:var(--text-dim);font-size:11px;display:block;margin-top:4px;}
+  .remove-item{background:none;border:none;color:var(--red);font-size:20px;cursor:pointer;padding:0 4px;}
+  small.hint{color:var(--text-dim);font-size:13px;display:block;margin-top:4px;}
 </style>
 </head>
 <body>
@@ -143,7 +143,7 @@
 <!-- Camera -->
 <div id="camWrap">
   <div id="camHint" style="display:none;position:absolute;top:16px;left:16px;right:16px;text-align:center;
-    color:#fff;font-size:13px;background:rgba(0,0,0,.6);padding:10px;border-radius:8px;z-index:1">Aponte para o QR Code da nota</div>
+    color:#fff;font-size:15px;background:rgba(0,0,0,.6);padding:10px;border-radius:8px;z-index:1">Aponte para o QR Code da nota</div>
   <video id="camVideo" autoplay playsinline></video>
   <canvas id="camCanvas"></canvas>
   <div id="camControls">
@@ -217,20 +217,20 @@
 <div id="loginScreen" style="position:fixed;inset:0;background:var(--bg);z-index:500;
   display:none;flex-direction:column;justify-content:center;padding:24px;">
   <div style="max-width:420px;margin:0 auto;width:100%">
-    <h1 style="text-align:center;margin-bottom:6px;font-size:18px;letter-spacing:1px;text-transform:uppercase">
+    <h1 style="text-align:center;margin-bottom:6px;font-size:20px;letter-spacing:1px;text-transform:uppercase">
       <span style="color:var(--red);font-weight:bold">ZERO!</span> Controle
     </h1>
-    <p style="text-align:center;color:var(--text-dim);font-size:12px;margin-bottom:24px">
+    <p style="text-align:center;color:var(--text-dim);font-size:14px;margin-bottom:24px">
       Faça login pra sincronizar seus dados entre aparelhos
     </p>
     <label>E-mail</label>
     <input type="email" id="loginEmail" autocomplete="email">
     <label>Senha</label>
     <input type="password" id="loginPassword" autocomplete="current-password">
-    <div id="loginError" style="color:#f87171;font-size:12px;margin-top:8px;display:none"></div>
+    <div id="loginError" style="color:#f87171;font-size:14px;margin-top:8px;display:none"></div>
     <button class="btn" id="loginBtn" style="margin-top:18px">Entrar</button>
     <button class="btn secondary" id="signupBtn" style="margin-top:10px">Criar conta (primeira vez)</button>
-    <p style="text-align:center;color:var(--text-dim);font-size:11px;margin-top:16px">
+    <p style="text-align:center;color:var(--text-dim);font-size:13px;margin-top:16px">
       Use o mesmo e-mail/senha em todos os aparelhos onde quiser ver os mesmos dados.
     </p>
   </div>
@@ -809,7 +809,7 @@ async function openReview(parsed, base64){
         <div style="flex:3">
           <label>Produto</label>
           <input class="f-desc" value="${escapeHtml(item.descricao)}">
-          <button type="button" class="btn ghost" data-padronizar="${idx}" style="width:auto;padding:4px 8px;font-size:10px;margin-top:4px">🏷 Padronizar</button>
+          <button type="button" class="btn ghost" data-padronizar="${idx}" style="width:auto;padding:4px 8px;font-size:12px;margin-top:4px">🏷 Padronizar</button>
         </div>
         <button class="remove-item" data-remove="${idx}">🗑</button>
       </div>
@@ -1074,7 +1074,7 @@ async function renderHistory(){
       <div class="card" data-nota="${n.id}" style="cursor:pointer">
         <div class="row" style="align-items:center">
           <div style="flex:2">
-            <div style="font-size:14px;font-weight:bold">${escapeHtml(n.fornecedor)}</div>
+            <div style="font-size:16px;font-weight:bold">${escapeHtml(n.fornecedor)}</div>
             <div class="item-meta">${formatDateBR(n.data)} ${n.numero_nota ? '· Nº '+escapeHtml(n.numero_nota) : ''}</div>
             ${n.forma_pagamento ? `<div class="item-meta">💳 ${escapeHtml(n.forma_pagamento)}</div>` : ''}
           </div>
@@ -1180,7 +1180,7 @@ function renderProductCategories(products){
       <div class="card" data-categoria="${escapeHtml(cat)}" style="cursor:pointer">
         <div class="row" style="align-items:center">
           <div style="flex:2">
-            <div style="font-size:14px;font-weight:bold">${escapeHtml(cat)}</div>
+            <div style="font-size:16px;font-weight:bold">${escapeHtml(cat)}</div>
             <div class="item-meta">${groups[cat].length} produto(s)</div>
           </div>
           <div style="color:var(--text-dim)">›</div>
@@ -1218,7 +1218,7 @@ function renderProductList(products, categoriasMap){
       <div class="card" data-produto-key="${escapeHtml(p.produtoKey)}" style="cursor:pointer">
         <div class="row" style="align-items:center">
           <div style="flex:2">
-            <div style="font-size:13px">${escapeHtml(p.nome)}</div>
+            <div style="font-size:15px">${escapeHtml(p.nome)}</div>
             <div class="item-meta">${formatDateBR(p.last.data)} · ${p.count}x comprado</div>
           </div>
           <div style="text-align:right">
@@ -1280,7 +1280,7 @@ function stockCardHtml(e){
     <div class="card" data-stock-key="${escapeHtml(e.produtoKey)}" style="cursor:pointer${e.baixo ? ';border-color:var(--red)' : ''}">
       <div class="row" style="align-items:center">
         <div style="flex:2">
-          <div style="font-size:13px">${escapeHtml(e.nome||'(sem nome)')}</div>
+          <div style="font-size:15px">${escapeHtml(e.nome||'(sem nome)')}</div>
           <div class="item-meta">${e.estoqueMinimo ? `mínimo: ${e.estoqueMinimo}` : ''}${e.estoqueMinimo && e.categoria && e.categoria!=='Sem categoria' ? ' · ' : ''}${e.categoria && e.categoria!=='Sem categoria' ? escapeHtml(e.categoria) : ''}</div>
         </div>
         <div style="text-align:right">
@@ -1344,7 +1344,7 @@ function renderStockOverview(list, estoqueByKey){
       <div class="card" data-categoria="${escapeHtml(cat)}" style="cursor:pointer">
         <div class="row" style="align-items:center">
           <div style="flex:2">
-            <div style="font-size:14px;font-weight:bold">${escapeHtml(cat)}</div>
+            <div style="font-size:16px;font-weight:bold">${escapeHtml(cat)}</div>
             <div class="item-meta">${groups[cat].length} produto(s)</div>
           </div>
           <div style="color:var(--text-dim)">›</div>
