@@ -189,7 +189,7 @@
 
     <div style="margin-top:24px;border-top:1px solid var(--line);padding-top:16px">
       <label>Importar produtos por planilha</label>
-      <small class="hint">Baixe o modelo, preencha com seus produtos (nome padronizado, categoria e estoque mínimo) e importe. Todo produto da planilha entra no estoque zerado — depois você ajusta a quantidade certa uma vez e vai só somando com as notas.</small>
+      <small class="hint">Baixe o modelo, preencha com seus produtos (Tipo/Marca/Modelo/Litragem, categoria e estoque mínimo) e importe. Todo produto da planilha entra no estoque zerado — depois você ajusta a quantidade certa uma vez e vai só somando com as notas.</small>
       <div class="row" style="margin-top:10px">
         <button class="btn secondary" id="downloadModeloBtn">Baixar modelo (.xlsx)</button>
         <button class="btn secondary" id="importProdutosBtn">Importar planilha</button>
@@ -1916,22 +1916,47 @@ document.getElementById('downloadModeloBtn').onclick = async ()=>{
     const wb = new ExcelJS.Workbook();
     const ws = wb.addWorksheet('Produtos');
     ws.columns = [
-      { header: 'Nome padronizado', key: 'nome', width: 34 },
+      { header: 'Tipo (máx 4)', key: 'tipo', width: 14 },
+      { header: 'Marca (máx 8)', key: 'marca', width: 18 },
+      { header: 'Modelo (máx 6)', key: 'modelo', width: 16 },
+      { header: 'Litragem/Peso', key: 'litragem', width: 16 },
       { header: 'Categoria', key: 'categoria', width: 20 },
       { header: 'Estoque mínimo', key: 'minimo', width: 16 },
     ];
     ws.getRow(1).eachCell(cell=>{ cell.fill = HEADER_FILL; cell.font = HEADER_FONT; });
     ws.views = [{ state: 'frozen', ySplit: 1 }];
-    ws.autoFilter = 'A1:C1';
+    ws.autoFilter = 'A1:F1';
+
+    const LIMITES = { A: [4, 'Tipo'], B: [8, 'Marca'], C: [6, 'Modelo'] };
+    for(let r=2; r<=500; r++){
+      Object.entries(LIMITES).forEach(([col, [max, campo]])=>{
+        ws.getCell(`${col}${r}`).dataValidation = {
+          type: 'textLength',
+          operator: 'lessThanOrEqual',
+          formulae: [max],
+          showErrorMessage: true,
+          errorStyle: 'error',
+          errorTitle: `Máximo ${max} caracteres`,
+          error: `${campo} pode ter no máximo ${max} caracteres.`,
+        };
+      });
+    }
 
     const info = wb.addWorksheet('Instruções');
     info.getColumn(1).width = 90;
     [
       'Como preencher esta planilha:',
       '',
-      '- Nome padronizado: o nome do produto exatamente como você já usa no app (Tipo/Marca/Modelo/Litragem).',
+      '- Tipo (máx. 4 caracteres): ex. CERV, VINH, GIN.',
+      '- Marca (máx. 8 caracteres): ex. HEINEKEN.',
+      '- Modelo (máx. 6 caracteres): ex. ZERO.',
+      '- Litragem/Peso: ex. 350ML. Sem limite de caracteres.',
       '- Categoria: opcional. Se preencher, o produto já entra categorizado.',
       '- Estoque mínimo: opcional. Quantidade que dispara o aviso de estoque baixo.',
+      '',
+      'O nome final do produto é montado juntando Tipo + Marca + Modelo + Litragem,',
+      'exatamente como o app já faz quando você padroniza um nome na conferência de nota.',
+      'Colunas vazias (Tipo, Marca, Modelo ou Litragem) são simplesmente ignoradas na montagem do nome.',
       '',
       'Atenção: ao importar, TODO produto da planilha entra no estoque com quantidade ZERADA,',
       'mesmo que já exista no app com uma quantidade diferente (a quantidade existente é sobrescrita para 0).',
@@ -1974,10 +1999,14 @@ document.getElementById('importProdutosFile').onchange = async (e)=>{
     const rows = [];
     ws.eachRow((row, rowNumber)=>{
       if(rowNumber === 1) return; // cabeçalho
-      const nome = (row.getCell(1).text || '').trim();
+      const tipo = (row.getCell(1).text || '').trim().toUpperCase().slice(0,4);
+      const marca = (row.getCell(2).text || '').trim().toUpperCase().slice(0,8);
+      const modelo = (row.getCell(3).text || '').trim().toUpperCase().slice(0,6);
+      const litragem = (row.getCell(4).text || '').trim().toUpperCase();
+      const nome = [tipo, marca, modelo, litragem].filter(Boolean).join(' ');
       if(!nome) return;
-      const categoria = (row.getCell(2).text || '').trim();
-      const minimoRaw = (row.getCell(3).text || '').trim();
+      const categoria = (row.getCell(5).text || '').trim();
+      const minimoRaw = (row.getCell(6).text || '').trim();
       const minimo = minimoRaw ? Number(minimoRaw.replace(',', '.')) : null;
       rows.push({ produtoKey: normalizeKey(nome), nome, categoria, minimo });
     });
