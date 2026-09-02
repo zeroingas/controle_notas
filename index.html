@@ -1473,33 +1473,23 @@ function openStockDetail(produtoKey, e){
     <div class="item-meta">Quantidade atual: <b>${e.quantidade ?? 0}</b></div>
     <label>Estoque mínimo (lembrete de compra)</label>
     <input id="f-estmin" type="number" step="1" value="${e.estoqueMinimo ?? 0}">
-    <div style="margin-top:10px">
-      <button class="btn secondary" id="saveMinBtn">Salvar mínimo</button>
-    </div>
     <div style="margin-top:24px;border-top:1px solid var(--line);padding-top:16px">
       <label>Corrigir quantidade em estoque</label>
       <input id="f-ajuste" type="number" step="1" value="${e.quantidade ?? 0}">
       <small class="hint">Use isso pra acertar o número quando estiver errado (ex: contagem física, estoque inicial).</small>
-      <div style="margin-top:10px">
-        <button class="btn" id="saveAjusteBtn">Salvar quantidade</button>
-      </div>
+    </div>
+    <div style="margin-top:16px">
+      <button class="btn" id="saveEstoqueBtn">Salvar</button>
     </div>
   `;
   document.getElementById('closeReview').onclick = ()=> modal.classList.remove('active');
-  document.getElementById('saveMinBtn').onclick = async ()=>{
-    const val = parseFloat(document.getElementById('f-estmin').value) || 0;
+  document.getElementById('saveEstoqueBtn').onclick = async ()=>{
+    const min = parseFloat(document.getElementById('f-estmin').value) || 0;
+    const qtd = parseFloat(document.getElementById('f-ajuste').value) || 0;
     try{
-      await setEstoqueMinimo(produtoKey, val, e.nome);
-      toast('Estoque mínimo salvo');
-      modal.classList.remove('active');
-      renderStock();
-    }catch(err){ toast('Erro: ' + err.message); }
-  };
-  document.getElementById('saveAjusteBtn').onclick = async ()=>{
-    const val = parseFloat(document.getElementById('f-ajuste').value) || 0;
-    try{
-      await ajustarEstoque(produtoKey, val, e.nome);
-      toast('Quantidade ajustada');
+      await setEstoqueMinimo(produtoKey, min, e.nome);
+      await ajustarEstoque(produtoKey, qtd, e.nome);
+      toast('Estoque salvo');
       modal.classList.remove('active');
       renderStock();
     }catch(err){ toast('Erro: ' + err.message); }
