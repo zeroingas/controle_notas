@@ -129,7 +129,7 @@
 <div id="app">
 
   <header>
-    <h1><span class="title-row"><span class="brand">ZERO!</span> Controle</span><small class="app-version">v1.1.1</small></h1>
+    <h1><span class="title-row"><span class="brand">ZERO!</span> Controle</span><small class="app-version">v1.1.2</small></h1>
     <button id="settingsBtn" title="Configurações">⚙</button>
   </header>
 
@@ -320,6 +320,12 @@ async function deleteAlias(rawKey){
 }
 
 /* Categorias: mapeia produtoKey -> nome da categoria (ex: Gin, Uísque, Cerveja) */
+function normalizeCategoriaText(categoria){
+  return (categoria||'').trim().replace(/\s+/g,' ')
+    .split(' ')
+    .map(w=> w ? w.charAt(0).toUpperCase() + w.slice(1).toLowerCase() : w)
+    .join(' ');
+}
 async function getAllCategorias(){
   const snap = await fsDB.collection('categorias').get();
   const map = {};
@@ -328,11 +334,27 @@ async function getAllCategorias(){
 }
 async function setCategoria(produtoKey, categoria){
   const ref = fsDB.collection('categorias').doc(sanitizeDocId(produtoKey));
-  if(!categoria){
+  const categoriaNormalizada = normalizeCategoriaText(categoria);
+  if(!categoriaNormalizada){
     await ref.delete().catch(()=>{});
     return;
   }
-  await ref.set({ produtoKey, categoria, atualizadoEm: new Date().toISOString() });
+  await ref.set({ produtoKey, categoria: categoriaNormalizada, atualizadoEm: new Date().toISOString() });
+}
+async function corrigirCategoriasExistentes(){
+  const snap = await fsDB.collection('categorias').get();
+  const batch = fsDB.batch();
+  let count = 0;
+  snap.docs.forEach(d=>{
+    const atual = d.data().categoria;
+    const normalizada = normalizeCategoriaText(atual);
+    if(normalizada && normalizada !== atual){
+      batch.update(d.ref, { categoria: normalizada });
+      count++;
+    }
+  });
+  if(count) await batch.commit();
+  return count;
 }
 
 function normalizeKey(name){
@@ -2084,6 +2106,12 @@ document.getElementById('signupBtn').onclick = async ()=>{
       }
       setTimeout(checkEstoqueBaixoNotice, getApiKey() ? 600 : 3400);
       render();
+      corrigirCategoriasExistentes().then(count=>{
+        if(count){
+          toast(`${count} categoria(s) corrigida(s) (maiúscula/minúscula)`);
+          render();
+        }
+      }).catch(()=>{});
     } else {
       showLoginScreen();
     }
