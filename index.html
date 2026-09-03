@@ -129,7 +129,7 @@
 <div id="app">
 
   <header>
-    <h1><span class="title-row"><span class="brand">ZERO!</span> Controle</span><small class="app-version">v1.3.0</small></h1>
+    <h1><span class="title-row"><span class="brand">ZERO!</span> Controle</span><small class="app-version">v1.3.1</small></h1>
     <button id="settingsBtn" title="Configurações">⚙</button>
   </header>
 
@@ -1226,37 +1226,81 @@ function openPadronizarModal(idx){
   modal.classList.add('active');
 }
 
-function openRenomearModal(produtoKey, nomeAtual, onDone){
+async function openRenomearModal(produtoKey, nomeAtual, onDone){
   const modal = document.getElementById('padronizarModal');
   const sheet = document.getElementById('padronizarSheet');
+  sheet.innerHTML = `<p class="hint">Carregando...</p>`;
+  modal.classList.add('active');
+
+  const estoqueList = await getAllEstoque();
+  const outrosProdutos = estoqueList.filter(x=> x.produtoKey !== produtoKey && x.nome);
+  const nomeToKey = {};
+  outrosProdutos.forEach(x=>{ nomeToKey[x.nome] = x.produtoKey; });
+
   sheet.innerHTML = `
     <button class="close-x" id="closePadronizar">✕</button>
-    <div class="section-title">Renomear produto</div>
+    <div class="section-title">Renomear / mesclar produto</div>
     <small class="hint">Nome atual: <b>${escapeHtml(nomeAtual)}</b></small>
-    <div class="row" style="margin-top:10px">
-      <div>
-        <label style="margin-top:0">Tipo (4)</label>
-        <input id="pTipo" maxlength="4" placeholder="CERV">
-      </div>
-      <div>
-        <label style="margin-top:0">Marca (8)</label>
-        <input id="pMarca" maxlength="8" placeholder="HEINEKEN">
-      </div>
+
+    <div style="margin-top:14px">
+      <label style="margin-top:0">Mesclar com produto já existente (recomendado)</label>
+      <input id="pMergeTarget" list="produtosExistentesList" placeholder="Digite pra buscar...">
+      <datalist id="produtosExistentesList">
+        ${outrosProdutos.map(x=>`<option value="${escapeHtml(x.nome)}">`).join('')}
+      </datalist>
+      <small class="hint">Escolha um produto da lista pra evitar duplicar por um espaço ou acento diferente na hora de digitar.</small>
+      <button class="btn" id="confirmMergeBtn" style="margin-top:8px">Mesclar</button>
     </div>
-    <div class="row">
-      <div>
-        <label style="margin-top:0">Modelo (6)</label>
-        <input id="pModelo" maxlength="6" placeholder="ZERO">
+
+    <div style="margin-top:24px;border-top:1px solid var(--line);padding-top:16px">
+      <label style="margin-top:0">Ou monte um nome novo/padronizado</label>
+      <div class="row">
+        <div>
+          <label style="margin-top:0">Tipo (4)</label>
+          <input id="pTipo" maxlength="4" placeholder="CERV">
+        </div>
+        <div>
+          <label style="margin-top:0">Marca (8)</label>
+          <input id="pMarca" maxlength="8" placeholder="HEINEKEN">
+        </div>
       </div>
-      <div>
-        <label style="margin-top:0">Litragem/Peso</label>
-        <input id="pLitragem" placeholder="350ML">
+      <div class="row">
+        <div>
+          <label style="margin-top:0">Modelo (6)</label>
+          <input id="pModelo" maxlength="6" placeholder="ZERO">
+        </div>
+        <div>
+          <label style="margin-top:0">Litragem/Peso</label>
+          <input id="pLitragem" placeholder="350ML">
+        </div>
       </div>
+      <small class="hint">Nome final: <b id="pPreview">—</b></small>
+      <button class="btn secondary" id="confirmPadronizarBtn" style="margin-top:12px">Usar esse nome</button>
     </div>
-    <small class="hint">Nome final: <b id="pPreview">—</b></small>
-    <button class="btn" id="confirmPadronizarBtn" style="margin-top:12px">Renomear</button>
   `;
   document.getElementById('closePadronizar').onclick = ()=> modal.classList.remove('active');
+
+  async function doRename(nome, btn, originalText){
+    btn.textContent = 'Renomeando...';
+    btn.disabled = true;
+    try{
+      await renomearProduto(produtoKey, nome);
+      toast('Produto renomeado');
+      modal.classList.remove('active');
+      if(onDone) onDone();
+    }catch(err){
+      toast('Erro ao renomear: ' + err.message);
+      btn.textContent = originalText;
+      btn.disabled = false;
+    }
+  }
+
+  document.getElementById('confirmMergeBtn').onclick = ()=>{
+    const val = document.getElementById('pMergeTarget').value.trim();
+    if(!nomeToKey.hasOwnProperty(val)){ toast('Escolha um produto da lista'); return; }
+    const btn = document.getElementById('confirmMergeBtn');
+    doRename(val, btn, 'Mesclar');
+  };
 
   function buildName(){
     const tipo = document.getElementById('pTipo').value.trim().toUpperCase().slice(0,4);
@@ -1272,25 +1316,12 @@ function openRenomearModal(produtoKey, nomeAtual, onDone){
     };
   });
 
-  document.getElementById('confirmPadronizarBtn').onclick = async ()=>{
+  document.getElementById('confirmPadronizarBtn').onclick = ()=>{
     const nome = buildName();
     if(!nome){ toast('Preencha pelo menos um campo'); return; }
     const btn = document.getElementById('confirmPadronizarBtn');
-    btn.textContent = 'Renomeando...';
-    btn.disabled = true;
-    try{
-      await renomearProduto(produtoKey, nome);
-      toast('Produto renomeado');
-      modal.classList.remove('active');
-      if(onDone) onDone();
-    }catch(err){
-      toast('Erro ao renomear: ' + err.message);
-      btn.textContent = 'Renomear';
-      btn.disabled = false;
-    }
+    doRename(nome, btn, 'Usar esse nome');
   };
-
-  modal.classList.add('active');
 }
 
 function escapeHtml(s){
