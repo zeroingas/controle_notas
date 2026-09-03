@@ -129,7 +129,7 @@
 <div id="app">
 
   <header>
-    <h1><span class="title-row"><span class="brand">ZERO!</span> Controle</span><small class="app-version">v1.3.1</small></h1>
+    <h1><span class="title-row"><span class="brand">ZERO!</span> Controle</span><small class="app-version">v1.3.2</small></h1>
     <button id="settingsBtn" title="Configurações">⚙</button>
   </header>
 
@@ -634,6 +634,14 @@ function formatDateBR(isoDate){
   const [y,m,d] = isoDate.slice(0,10).split('-');
   if(!y || !m || !d) return isoDate;
   return `${d}/${m}/${y}`;
+}
+function formatDateTimeBR(isoDateTime){
+  if(!isoDateTime) return '';
+  const dt = new Date(isoDateTime);
+  if(isNaN(dt)) return '';
+  const data = dt.toLocaleDateString('pt-BR');
+  const hora = dt.toLocaleTimeString('pt-BR', { hour:'2-digit', minute:'2-digit' });
+  return `${data} ${hora}`;
 }
 function formatChaveAcesso(chave){
   const digits = (chave||'').replace(/\D/g,'');
@@ -1577,6 +1585,7 @@ function stockCardHtml(e){
         <div style="flex:2">
           <div style="font-size:15px">${escapeHtml(e.nome||'(sem nome)')}</div>
           <div class="item-meta">${e.estoqueMinimo ? `mínimo: ${e.estoqueMinimo}` : ''}${e.estoqueMinimo && e.categoria && e.categoria!=='Sem categoria' ? ' · ' : ''}${e.categoria && e.categoria!=='Sem categoria' ? escapeHtml(e.categoria) : ''}</div>
+          ${e.atualizadoEm ? `<div class="item-meta">Atualizado em ${formatDateTimeBR(e.atualizadoEm)}</div>` : ''}
         </div>
         <div style="text-align:right">
           <div class="price">${e.quantidade ?? 0}</div>
@@ -1690,6 +1699,7 @@ function openStockDetail(produtoKey, e){
     <div class="item-meta">Quantidade atual: <b>${e.quantidade ?? 0}</b></div>
     <label>Estoque mínimo (lembrete de compra)</label>
     <input id="f-estmin" type="number" step="1" value="${e.estoqueMinimo ?? 0}">
+    ${e.atualizadoEm ? `<small class="hint">Atualizado em ${formatDateTimeBR(e.atualizadoEm)}</small>` : ''}
     <div style="margin-top:24px;border-top:1px solid var(--line);padding-top:16px">
       <label>Corrigir quantidade em estoque</label>
       <input id="f-ajuste" type="number" step="1" value="${e.quantidade ?? 0}">
