@@ -1,9 +1,10 @@
-const CACHE_NAME = 'notas-app-v31';
+const CACHE_NAME = 'notas-app-v32';
 const ASSETS = [
   './index.html',
   './manifest.json',
   './icon-192.png',
   './icon-512.png',
+  './modelo-produtos.xltm',
   'https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js',
   'https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js',
   'https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js'
