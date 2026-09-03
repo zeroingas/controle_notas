@@ -129,7 +129,7 @@
 <div id="app">
 
   <header>
-    <h1><span class="title-row"><span class="brand">ZERO!</span> Controle</span><small class="app-version">v1.2.1</small></h1>
+    <h1><span class="title-row"><span class="brand">ZERO!</span> Controle</span><small class="app-version">v1.3.0</small></h1>
     <button id="settingsBtn" title="Configurações">⚙</button>
   </header>
 
@@ -384,6 +384,59 @@ async function corrigirNomesExistentes(){
   if(countEstoque) await batch2.commit();
 
   return count + countEstoque;
+}
+
+/* Renomeia um produto já existente (Estoque/Produtos), movendo ou mesclando
+   os dados de itens/estoque/categorias da chave antiga pra chave nova. */
+async function renomearProduto(oldProdutoKey, novoNome){
+  const novoProdutoKey = normalizeKey(novoNome);
+  if(!novoProdutoKey || novoProdutoKey === oldProdutoKey) return { renamed:false };
+
+  const oldEstoqueRef = fsDB.collection('estoque').doc(sanitizeDocId(oldProdutoKey));
+  const novoEstoqueRef = fsDB.collection('estoque').doc(sanitizeDocId(novoProdutoKey));
+  const oldCategoriaRef = fsDB.collection('categorias').doc(sanitizeDocId(oldProdutoKey));
+  const novoCategoriaRef = fsDB.collection('categorias').doc(sanitizeDocId(novoProdutoKey));
+
+  const [itensSnap, oldEstoqueDoc, novoEstoqueDoc, oldCategoriaDoc, novoCategoriaDoc] = await Promise.all([
+    fsDB.collection('itens').where('produtoKey','==',oldProdutoKey).get(),
+    oldEstoqueRef.get(),
+    novoEstoqueRef.get(),
+    oldCategoriaRef.get(),
+    novoCategoriaRef.get(),
+  ]);
+
+  const batch = fsDB.batch();
+
+  itensSnap.docs.forEach(d=>{
+    batch.update(d.ref, { produtoKey: novoProdutoKey, descricao: novoNome });
+  });
+
+  if(oldEstoqueDoc.exists){
+    const oldData = oldEstoqueDoc.data();
+    if(novoEstoqueDoc.exists){
+      const novoData = novoEstoqueDoc.data();
+      batch.set(novoEstoqueRef, {
+        produtoKey: novoProdutoKey,
+        nome: novoNome,
+        quantidade: (novoData.quantidade||0) + (oldData.quantidade||0),
+        estoqueMinimo: novoData.estoqueMinimo || oldData.estoqueMinimo || 0,
+        atualizadoEm: new Date().toISOString(),
+      }, {merge:true});
+    } else {
+      batch.set(novoEstoqueRef, { ...oldData, produtoKey: novoProdutoKey, nome: novoNome, atualizadoEm: new Date().toISOString() });
+    }
+    batch.delete(oldEstoqueRef);
+  }
+
+  if(oldCategoriaDoc.exists){
+    if(!novoCategoriaDoc.exists){
+      batch.set(novoCategoriaRef, { ...oldCategoriaDoc.data(), produtoKey: novoProdutoKey });
+    }
+    batch.delete(oldCategoriaRef);
+  }
+
+  await batch.commit();
+  return { renamed:true, novoProdutoKey };
 }
 
 function normalizeKey(name){
@@ -1173,6 +1226,73 @@ function openPadronizarModal(idx){
   modal.classList.add('active');
 }
 
+function openRenomearModal(produtoKey, nomeAtual, onDone){
+  const modal = document.getElementById('padronizarModal');
+  const sheet = document.getElementById('padronizarSheet');
+  sheet.innerHTML = `
+    <button class="close-x" id="closePadronizar">✕</button>
+    <div class="section-title">Renomear produto</div>
+    <small class="hint">Nome atual: <b>${escapeHtml(nomeAtual)}</b></small>
+    <div class="row" style="margin-top:10px">
+      <div>
+        <label style="margin-top:0">Tipo (4)</label>
+        <input id="pTipo" maxlength="4" placeholder="CERV">
+      </div>
+      <div>
+        <label style="margin-top:0">Marca (8)</label>
+        <input id="pMarca" maxlength="8" placeholder="HEINEKEN">
+      </div>
+    </div>
+    <div class="row">
+      <div>
+        <label style="margin-top:0">Modelo (6)</label>
+        <input id="pModelo" maxlength="6" placeholder="ZERO">
+      </div>
+      <div>
+        <label style="margin-top:0">Litragem/Peso</label>
+        <input id="pLitragem" placeholder="350ML">
+      </div>
+    </div>
+    <small class="hint">Nome final: <b id="pPreview">—</b></small>
+    <button class="btn" id="confirmPadronizarBtn" style="margin-top:12px">Renomear</button>
+  `;
+  document.getElementById('closePadronizar').onclick = ()=> modal.classList.remove('active');
+
+  function buildName(){
+    const tipo = document.getElementById('pTipo').value.trim().toUpperCase().slice(0,4);
+    const marca = document.getElementById('pMarca').value.trim().toUpperCase().slice(0,8);
+    const modelo = document.getElementById('pModelo').value.trim().toUpperCase().slice(0,6);
+    const litragem = document.getElementById('pLitragem').value.trim().toUpperCase();
+    return [tipo, marca, modelo, litragem].filter(Boolean).join(' ');
+  }
+  ['pTipo','pMarca','pModelo','pLitragem'].forEach(id=>{
+    document.getElementById(id).oninput = (e)=>{
+      e.target.value = e.target.value.toUpperCase();
+      document.getElementById('pPreview').textContent = buildName() || '—';
+    };
+  });
+
+  document.getElementById('confirmPadronizarBtn').onclick = async ()=>{
+    const nome = buildName();
+    if(!nome){ toast('Preencha pelo menos um campo'); return; }
+    const btn = document.getElementById('confirmPadronizarBtn');
+    btn.textContent = 'Renomeando...';
+    btn.disabled = true;
+    try{
+      await renomearProduto(produtoKey, nome);
+      toast('Produto renomeado');
+      modal.classList.remove('active');
+      if(onDone) onDone();
+    }catch(err){
+      toast('Erro ao renomear: ' + err.message);
+      btn.textContent = 'Renomear';
+      btn.disabled = false;
+    }
+  };
+
+  modal.classList.add('active');
+}
+
 function escapeHtml(s){
   return (s||'').toString().replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 }
@@ -1384,6 +1504,7 @@ function openProductDetail(product, existingCategorias){
   sheet.innerHTML = `
     <button class="close-x" id="closeReview">✕</button>
     <div class="section-title">${escapeHtml(product.nome)}</div>
+    <button type="button" class="btn ghost" id="renomearProdutoBtn" style="width:auto;padding:4px 8px;font-size:12px;margin-bottom:10px">🏷 Renomear</button>
     <div class="item-meta">Último preço: R$ ${product.last.valor_unitario.toFixed(2)} · ${product.count}x comprado</div>
     <label>Categoria</label>
     <input id="f-categoria" list="categoriaList" value="${product.categoria==='Sem categoria' ? '' : escapeHtml(product.categoria)}" placeholder="Ex: Gin, Uísque, Vodka, Cerveja, Sem Álcool">
@@ -1395,6 +1516,13 @@ function openProductDetail(product, existingCategorias){
     </div>
   `;
   document.getElementById('closeReview').onclick = ()=> modal.classList.remove('active');
+  document.getElementById('renomearProdutoBtn').onclick = ()=>{
+    openRenomearModal(product.produtoKey, product.nome||'', ()=>{
+      modal.classList.remove('active');
+      selectedCategoria = null;
+      renderProducts();
+    });
+  };
   document.getElementById('saveCategoriaBtn').onclick = async ()=>{
     const val = document.getElementById('f-categoria').value.trim();
     try{
@@ -1527,6 +1655,7 @@ function openStockDetail(produtoKey, e){
   sheet.innerHTML = `
     <button class="close-x" id="closeReview">✕</button>
     <div class="section-title">${escapeHtml(e.nome||'(sem nome)')}</div>
+    <button type="button" class="btn ghost" id="renomearProdutoBtn" style="width:auto;padding:4px 8px;font-size:12px;margin-bottom:10px">🏷 Renomear</button>
     <div class="item-meta">Quantidade atual: <b>${e.quantidade ?? 0}</b></div>
     <label>Estoque mínimo (lembrete de compra)</label>
     <input id="f-estmin" type="number" step="1" value="${e.estoqueMinimo ?? 0}">
@@ -1540,6 +1669,12 @@ function openStockDetail(produtoKey, e){
     </div>
   `;
   document.getElementById('closeReview').onclick = ()=> modal.classList.remove('active');
+  document.getElementById('renomearProdutoBtn').onclick = ()=>{
+    openRenomearModal(produtoKey, e.nome||'', ()=>{
+      modal.classList.remove('active');
+      renderStock();
+    });
+  };
   document.getElementById('saveEstoqueBtn').onclick = async ()=>{
     const min = parseFloat(document.getElementById('f-estmin').value) || 0;
     const qtd = parseFloat(document.getElementById('f-ajuste').value) || 0;
