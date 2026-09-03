@@ -129,7 +129,7 @@
 <div id="app">
 
   <header>
-    <h1><span class="title-row"><span class="brand">ZERO!</span> Controle</span><small class="app-version">v1.1.2</small></h1>
+    <h1><span class="title-row"><span class="brand">ZERO!</span> Controle</span><small class="app-version">v1.1.3</small></h1>
     <button id="settingsBtn" title="Configurações">⚙</button>
   </header>
 
@@ -1950,9 +1950,9 @@ document.getElementById('downloadModeloBtn').onclick = async ()=>{
           operator: 'lessThanOrEqual',
           formulae: [max],
           showErrorMessage: true,
-          errorStyle: 'error',
-          errorTitle: `Máximo ${max} caracteres`,
-          error: `${campo} pode ter no máximo ${max} caracteres.`,
+          errorStyle: 'warning',
+          errorTitle: `${campo} passou de ${max} caracteres`,
+          error: `Pode deixar assim se quiser — na importação o app corta automaticamente pros primeiros ${max} caracteres.`,
         };
       });
     }
@@ -1962,9 +1962,9 @@ document.getElementById('downloadModeloBtn').onclick = async ()=>{
     [
       'Como preencher esta planilha:',
       '',
-      '- Tipo (máx. 4 caracteres): ex. CERV, VINH, GIN.',
-      '- Marca (máx. 8 caracteres): ex. HEINEKEN.',
-      '- Modelo (máx. 6 caracteres): ex. ZERO.',
+      '- Tipo (sugestão de até 4 caracteres): ex. CERV, VINH, GIN. Não precisa contar letra: se passar do limite, o app corta sozinho na importação.',
+      '- Marca (sugestão de até 8 caracteres): ex. HEINEKEN. Mesma regra: corte automático se passar.',
+      '- Modelo (sugestão de até 6 caracteres): ex. ZERO. Mesma regra: corte automático se passar.',
       '- Litragem/Peso: ex. 350ML. Sem limite de caracteres.',
       '- Categoria: opcional. Se preencher, o produto já entra categorizado.',
       '- Estoque mínimo: opcional. Quantidade que dispara o aviso de estoque baixo.',
