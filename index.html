@@ -129,7 +129,7 @@
 <div id="app">
 
   <header>
-    <h1><span class="title-row"><span class="brand">ZERO!</span> Controle</span><small class="app-version">v1.3.2</small></h1>
+    <h1><span class="title-row"><span class="brand">ZERO!</span> Controle</span><small class="app-version">v1.3.3</small></h1>
     <button id="settingsBtn" title="Configurações">⚙</button>
   </header>
 
@@ -642,6 +642,13 @@ function formatDateTimeBR(isoDateTime){
   const data = dt.toLocaleDateString('pt-BR');
   const hora = dt.toLocaleTimeString('pt-BR', { hour:'2-digit', minute:'2-digit' });
   return `${data} ${hora}`;
+}
+function dataAtualizacaoHtml(isoDateTime){
+  const texto = formatDateTimeBR(isoDateTime);
+  if(!texto) return '';
+  const dt = new Date(isoDateTime);
+  const hoje = !isNaN(dt) && dt.toDateString() === new Date().toDateString();
+  return hoje ? `<span style="color:var(--green)">${texto}</span>` : texto;
 }
 function formatChaveAcesso(chave){
   const digits = (chave||'').replace(/\D/g,'');
@@ -1579,13 +1586,16 @@ function openProductDetail(product, existingCategorias){
 let selectedEstoqueCategoria = null;
 
 function stockCardHtml(e){
+  const partes = [];
+  if(e.estoqueMinimo) partes.push(`mínimo: ${e.estoqueMinimo}`);
+  if(e.categoria && e.categoria!=='Sem categoria') partes.push(escapeHtml(e.categoria));
+  if(e.atualizadoEm) partes.push(dataAtualizacaoHtml(e.atualizadoEm));
   return `
     <div class="card" data-stock-key="${escapeHtml(e.produtoKey)}" style="cursor:pointer${e.baixo ? ';border-color:var(--red)' : ''}">
       <div class="row" style="align-items:center">
         <div style="flex:2">
           <div style="font-size:15px">${escapeHtml(e.nome||'(sem nome)')}</div>
-          <div class="item-meta">${e.estoqueMinimo ? `mínimo: ${e.estoqueMinimo}` : ''}${e.estoqueMinimo && e.categoria && e.categoria!=='Sem categoria' ? ' · ' : ''}${e.categoria && e.categoria!=='Sem categoria' ? escapeHtml(e.categoria) : ''}</div>
-          ${e.atualizadoEm ? `<div class="item-meta">Atualizado em ${formatDateTimeBR(e.atualizadoEm)}</div>` : ''}
+          <div class="item-meta">${partes.join(' · ')}</div>
         </div>
         <div style="text-align:right">
           <div class="price">${e.quantidade ?? 0}</div>
@@ -1699,7 +1709,7 @@ function openStockDetail(produtoKey, e){
     <div class="item-meta">Quantidade atual: <b>${e.quantidade ?? 0}</b></div>
     <label>Estoque mínimo (lembrete de compra)</label>
     <input id="f-estmin" type="number" step="1" value="${e.estoqueMinimo ?? 0}">
-    ${e.atualizadoEm ? `<small class="hint">Atualizado em ${formatDateTimeBR(e.atualizadoEm)}</small>` : ''}
+    ${e.atualizadoEm ? `<small class="hint">${dataAtualizacaoHtml(e.atualizadoEm)}</small>` : ''}
     <div style="margin-top:24px;border-top:1px solid var(--line);padding-top:16px">
       <label>Corrigir quantidade em estoque</label>
       <input id="f-ajuste" type="number" step="1" value="${e.quantidade ?? 0}">
