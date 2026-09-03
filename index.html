@@ -129,7 +129,7 @@
 <div id="app">
 
   <header>
-    <h1><span class="title-row"><span class="brand">ZERO!</span> Controle</span><small class="app-version">v1.2.0</small></h1>
+    <h1><span class="title-row"><span class="brand">ZERO!</span> Controle</span><small class="app-version">v1.2.1</small></h1>
     <button id="settingsBtn" title="Configurações">⚙</button>
   </header>
 
@@ -355,6 +355,35 @@ async function corrigirCategoriasExistentes(){
   });
   if(count) await batch.commit();
   return count;
+}
+async function corrigirNomesExistentes(){
+  let count = 0;
+  const itensSnap = await fsDB.collection('itens').get();
+  const batch1 = fsDB.batch();
+  itensSnap.docs.forEach(d=>{
+    const atual = d.data().descricao;
+    const maiusculo = (atual||'').toUpperCase();
+    if(atual && maiusculo !== atual){
+      batch1.update(d.ref, { descricao: maiusculo });
+      count++;
+    }
+  });
+  if(count) await batch1.commit();
+
+  const estoqueSnap = await fsDB.collection('estoque').get();
+  const batch2 = fsDB.batch();
+  let countEstoque = 0;
+  estoqueSnap.docs.forEach(d=>{
+    const atual = d.data().nome;
+    const maiusculo = (atual||'').toUpperCase();
+    if(atual && maiusculo !== atual){
+      batch2.update(d.ref, { nome: maiusculo });
+      countEstoque++;
+    }
+  });
+  if(countEstoque) await batch2.commit();
+
+  return count + countEstoque;
 }
 
 function normalizeKey(name){
@@ -1001,6 +1030,9 @@ async function openReview(parsed, base64){
     document.querySelectorAll('[data-padronizar]').forEach(b=>{
       b.onclick = ()=> openPadronizarModal(parseInt(b.dataset.padronizar));
     });
+    document.querySelectorAll('#itemsList .f-desc').forEach(input=>{
+      input.oninput = (e)=>{ e.target.value = e.target.value.toUpperCase(); };
+    });
   }
   bindItemEvents();
 
@@ -1020,7 +1052,7 @@ async function openReview(parsed, base64){
       const barcodeField = card.querySelector('.f-barcode');
       const codigoBarras = barcodeField ? barcodeField.value.trim() : '';
       return {
-        descricao: card.querySelector('.f-desc').value.trim(),
+        descricao: card.querySelector('.f-desc').value.trim().toUpperCase(),
         rawDescricao: rawField ? rawField.value.trim() : '',
         codigoBarras,
         quantidade: parseFloat(card.querySelector('.f-qtd').value) || 0,
@@ -2061,6 +2093,12 @@ document.getElementById('signupBtn').onclick = async ()=>{
       corrigirCategoriasExistentes().then(count=>{
         if(count){
           toast(`${count} categoria(s) corrigida(s) (maiúscula/minúscula)`);
+          render();
+        }
+      }).catch(()=>{});
+      corrigirNomesExistentes().then(count=>{
+        if(count){
+          toast(`${count} nome(s) de produto corrigido(s) (maiúscula/minúscula)`);
           render();
         }
       }).catch(()=>{});
