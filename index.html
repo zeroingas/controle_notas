@@ -129,7 +129,7 @@
 <div id="app">
 
   <header>
-    <h1><span class="title-row"><span class="brand">ZERO!</span> Controle</span><small class="app-version">v1.3.3</small></h1>
+    <h1><span class="title-row"><span class="brand">ZERO!</span> Controle</span><small class="app-version">v1.4.0</small></h1>
     <button id="settingsBtn" title="Configurações">⚙</button>
   </header>
 
@@ -1241,16 +1241,17 @@ function openPadronizarModal(idx){
   modal.classList.add('active');
 }
 
-async function openRenomearModal(produtoKey, nomeAtual, onDone){
+async function openRenomearModal(produtoKey, nomeAtual, categoriaAtual, onDone){
   const modal = document.getElementById('padronizarModal');
   const sheet = document.getElementById('padronizarSheet');
   sheet.innerHTML = `<p class="hint">Carregando...</p>`;
   modal.classList.add('active');
 
-  const estoqueList = await getAllEstoque();
+  const [estoqueList, categoriasMap] = await Promise.all([getAllEstoque(), getAllCategorias()]);
   const outrosProdutos = estoqueList.filter(x=> x.produtoKey !== produtoKey && x.nome);
   const nomeToKey = {};
   outrosProdutos.forEach(x=>{ nomeToKey[x.nome] = x.produtoKey; });
+  const existingCategorias = [...new Set(Object.values(categoriasMap))].filter(Boolean).sort();
 
   sheet.innerHTML = `
     <button class="close-x" id="closePadronizar">✕</button>
@@ -1292,8 +1293,35 @@ async function openRenomearModal(produtoKey, nomeAtual, onDone){
       <small class="hint">Nome final: <b id="pPreview">—</b></small>
       <button class="btn secondary" id="confirmPadronizarBtn" style="margin-top:12px">Usar esse nome</button>
     </div>
+
+    <div style="margin-top:24px;border-top:1px solid var(--line);padding-top:16px">
+      <label style="margin-top:0">Categoria</label>
+      <input id="pCategoria" list="categoriaListRenomear" value="${categoriaAtual==='Sem categoria' ? '' : escapeHtml(categoriaAtual||'')}" placeholder="Ex: Gin, Uísque, Vodka, Cerveja, Sem Álcool">
+      <datalist id="categoriaListRenomear">
+        ${existingCategorias.map(c=>`<option value="${escapeHtml(c)}">`).join('')}
+      </datalist>
+      <button class="btn secondary" id="confirmCategoriaBtn" style="margin-top:8px">Salvar categoria</button>
+    </div>
   `;
   document.getElementById('closePadronizar').onclick = ()=> modal.classList.remove('active');
+
+  document.getElementById('confirmCategoriaBtn').onclick = async ()=>{
+    const val = document.getElementById('pCategoria').value.trim();
+    const btn = document.getElementById('confirmCategoriaBtn');
+    const originalText = btn.textContent;
+    btn.textContent = 'Salvando...';
+    btn.disabled = true;
+    try{
+      await setCategoria(produtoKey, val);
+      toast('Categoria salva');
+      modal.classList.remove('active');
+      if(onDone) onDone();
+    }catch(err){
+      toast('Erro ao salvar categoria: ' + err.message);
+      btn.textContent = originalText;
+      btn.disabled = false;
+    }
+  };
 
   async function doRename(nome, btn, originalText){
     btn.textContent = 'Renomeando...';
@@ -1563,7 +1591,7 @@ function openProductDetail(product, existingCategorias){
   `;
   document.getElementById('closeReview').onclick = ()=> modal.classList.remove('active');
   document.getElementById('renomearProdutoBtn').onclick = ()=>{
-    openRenomearModal(product.produtoKey, product.nome||'', ()=>{
+    openRenomearModal(product.produtoKey, product.nome||'', product.categoria, ()=>{
       modal.classList.remove('active');
       selectedCategoria = null;
       renderProducts();
@@ -1721,7 +1749,7 @@ function openStockDetail(produtoKey, e){
   `;
   document.getElementById('closeReview').onclick = ()=> modal.classList.remove('active');
   document.getElementById('renomearProdutoBtn').onclick = ()=>{
-    openRenomearModal(produtoKey, e.nome||'', ()=>{
+    openRenomearModal(produtoKey, e.nome||'', e.categoria, ()=>{
       modal.classList.remove('active');
       renderStock();
     });
