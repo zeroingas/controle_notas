@@ -1,4 +1,4 @@
-const CACHE_NAME = 'baixa-app-v2';
+const CACHE_NAME = 'baixa-app-v3';
 const ASSETS = [
   './index.html',
   './manifest.json',
