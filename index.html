@@ -129,7 +129,7 @@
 <div id="app">
 
   <header>
-    <h1><span class="title-row"><span class="brand">ZERO!</span> Controle</span><small class="app-version">v1.4.0</small></h1>
+    <h1><span class="title-row"><span class="brand">ZERO!</span> Controle</span><small class="app-version">v1.5.0</small></h1>
     <button id="settingsBtn" title="Configurações">⚙</button>
   </header>
 
@@ -386,9 +386,26 @@ async function corrigirNomesExistentes(){
   return count + countEstoque;
 }
 
+/* Marcas: mapeia a marca abreviada (até 8 caracteres, como salva no nome do
+   produto) pro nome completo, pra exibir/agrupar por marca no app de Baixa. */
+async function getAllMarcas(){
+  const snap = await fsDB.collection('marcas').get();
+  const map = {};
+  snap.docs.forEach(d=> map[d.data().marca || d.id] = d.data().nomeCompleto);
+  return map;
+}
+async function setMarcaCompleta(marcaAbrev, nomeCompleto){
+  if(!marcaAbrev || !nomeCompleto) return;
+  await fsDB.collection('marcas').doc(sanitizeDocId(marcaAbrev)).set({
+    marca: marcaAbrev, nomeCompleto, atualizadoEm: new Date().toISOString()
+  });
+}
+
 /* Renomeia um produto já existente (Estoque/Produtos), movendo ou mesclando
-   os dados de itens/estoque/categorias da chave antiga pra chave nova. */
-async function renomearProduto(oldProdutoKey, novoNome){
+   os dados de itens/estoque/categorias da chave antiga pra chave nova.
+   `marca` (opcional) é a marca abreviada, salva no estoque pra permitir
+   agrupar produtos da mesma marca no app de Baixa. */
+async function renomearProduto(oldProdutoKey, novoNome, marca){
   const novoProdutoKey = normalizeKey(novoNome);
   if(!novoProdutoKey || novoProdutoKey === oldProdutoKey) return { renamed:false };
 
@@ -418,12 +435,13 @@ async function renomearProduto(oldProdutoKey, novoNome){
       batch.set(novoEstoqueRef, {
         produtoKey: novoProdutoKey,
         nome: novoNome,
+        marca: marca || novoData.marca || oldData.marca || null,
         quantidade: (novoData.quantidade||0) + (oldData.quantidade||0),
         estoqueMinimo: novoData.estoqueMinimo || oldData.estoqueMinimo || 0,
         atualizadoEm: new Date().toISOString(),
       }, {merge:true});
     } else {
-      batch.set(novoEstoqueRef, { ...oldData, produtoKey: novoProdutoKey, nome: novoNome, atualizadoEm: new Date().toISOString() });
+      batch.set(novoEstoqueRef, { ...oldData, produtoKey: novoProdutoKey, nome: novoNome, marca: marca || oldData.marca || null, atualizadoEm: new Date().toISOString() });
     }
     batch.delete(oldEstoqueRef);
   }
@@ -449,20 +467,23 @@ async function getAllEstoque(){
   const snap = await fsDB.collection('estoque').get();
   return snap.docs.map(d=>({id:d.id, ...d.data()}));
 }
-async function registrarEntradaEstoque(produtoKey, nome, quantidade){
+async function registrarEntradaEstoque(produtoKey, nome, quantidade, marca){
   if(!produtoKey || !quantidade) return;
   const ref = fsDB.collection('estoque').doc(sanitizeDocId(produtoKey));
-  await ref.set({
+  const payload = {
     produtoKey,
     nome,
     quantidade: firebase.firestore.FieldValue.increment(quantidade),
     atualizadoEm: new Date().toISOString()
-  }, {merge:true});
+  };
+  if(marca) payload.marca = marca;
+  await ref.set(payload, {merge:true});
 }
-async function ajustarEstoque(produtoKey, novaQuantidade, nome){
+async function ajustarEstoque(produtoKey, novaQuantidade, nome, marca){
   const ref = fsDB.collection('estoque').doc(sanitizeDocId(produtoKey));
   const payload = { produtoKey, quantidade: novaQuantidade, atualizadoEm: new Date().toISOString() };
   if(nome) payload.nome = nome;
+  if(marca) payload.marca = marca;
   await ref.set(payload, {merge:true});
 }
 async function setEstoqueMinimo(produtoKey, valor, nome){
@@ -991,6 +1012,7 @@ async function openReview(parsed, base64){
     <div class="card" data-item-idx="${idx}">
       <input type="hidden" class="f-rawdesc" value="${escapeHtml(item.rawDescricao || item.descricao)}">
       <input type="hidden" class="f-barcode" value="${escapeHtml(item.codigoBarras || '')}">
+      <input type="hidden" class="f-marca" value="${escapeHtml(item.marca || '')}">
       <div class="row" style="align-items:center">
         <div style="flex:3">
           <label>Produto</label>
@@ -1080,6 +1102,7 @@ async function openReview(parsed, base64){
       itemsState[idx].quantidade = parseFloat(card.querySelector('.f-qtd').value) || 0;
       itemsState[idx].unidade = card.querySelector('.f-un').value;
       itemsState[idx].valor_unitario = parseFloat(card.querySelector('.f-vu').value) || 0;
+      itemsState[idx].marca = card.querySelector('.f-marca').value;
     });
   }
   function refreshItemsDom(){
@@ -1118,10 +1141,12 @@ async function openReview(parsed, base64){
     const finalItems = Array.from(cards).map(card=>{
       const rawField = card.querySelector('.f-rawdesc');
       const barcodeField = card.querySelector('.f-barcode');
+      const marcaField = card.querySelector('.f-marca');
       const codigoBarras = barcodeField ? barcodeField.value.trim() : '';
       return {
         descricao: card.querySelector('.f-desc').value.trim().toUpperCase(),
         rawDescricao: rawField ? rawField.value.trim() : '',
+        marca: marcaField ? marcaField.value.trim() : '',
         codigoBarras,
         quantidade: parseFloat(card.querySelector('.f-qtd').value) || 0,
         unidade: card.querySelector('.f-un').value.trim(),
@@ -1168,7 +1193,7 @@ async function openReview(parsed, base64){
           valor_total: +(item.quantidade * item.valor_unitario).toFixed(2),
           data: nota.data
         });
-        await registrarEntradaEstoque(produtoKey, item.descricao, item.quantidade);
+        await registrarEntradaEstoque(produtoKey, item.descricao, item.quantidade, item.marca);
       }
 
       modal.classList.remove('active');
@@ -1185,9 +1210,13 @@ async function openReview(parsed, base64){
   modal.classList.add('active');
 }
 
-function openPadronizarModal(idx){
+async function openPadronizarModal(idx){
   const modal = document.getElementById('padronizarModal');
   const sheet = document.getElementById('padronizarSheet');
+  sheet.innerHTML = `<p class="hint">Carregando...</p>`;
+  modal.classList.add('active');
+  const marcasMap = await getAllMarcas();
+
   sheet.innerHTML = `
     <button class="close-x" id="closePadronizar">✕</button>
     <div class="section-title">Padronizar nome</div>
@@ -1211,6 +1240,9 @@ function openPadronizarModal(idx){
         <input id="pLitragem" placeholder="350ML">
       </div>
     </div>
+    <label style="margin-top:0">Nome completo da marca (opcional)</label>
+    <input id="pNomeCompleto" placeholder="Ex: Jack Daniels">
+    <small class="hint">Só pra exibir/agrupar melhor no app de Baixa. Uma vez cadastrado pra essa marca, não precisa repetir.</small>
     <small class="hint">Nome final: <b id="pPreview">—</b></small>
     <button class="btn" id="confirmPadronizarBtn" style="margin-top:12px">Usar esse nome</button>
   `;
@@ -1229,16 +1261,29 @@ function openPadronizarModal(idx){
       document.getElementById('pPreview').textContent = buildName() || '—';
     };
   });
+  document.getElementById('pMarca').addEventListener('input', (e)=>{
+    const marca = e.target.value.trim().toUpperCase().slice(0,8);
+    const nomeCompletoInput = document.getElementById('pNomeCompleto');
+    if(marca && marcasMap[marca] && !nomeCompletoInput.value){
+      nomeCompletoInput.value = marcasMap[marca];
+    }
+  });
 
-  document.getElementById('confirmPadronizarBtn').onclick = ()=>{
+  document.getElementById('confirmPadronizarBtn').onclick = async ()=>{
     const nome = buildName();
     if(!nome){ toast('Preencha pelo menos um campo'); return; }
-    const input = document.querySelector(`[data-item-idx="${idx}"] .f-desc`);
-    if(input) input.value = nome;
+    const marca = document.getElementById('pMarca').value.trim().toUpperCase().slice(0,8);
+    const nomeCompleto = document.getElementById('pNomeCompleto').value.trim();
+    const card = document.querySelector(`[data-item-idx="${idx}"]`);
+    if(card){
+      card.querySelector('.f-desc').value = nome;
+      card.querySelector('.f-marca').value = marca;
+    }
+    if(marca && nomeCompleto){
+      try{ await setMarcaCompleta(marca, nomeCompleto); }catch(err){ /* silent */ }
+    }
     modal.classList.remove('active');
   };
-
-  modal.classList.add('active');
 }
 
 async function openRenomearModal(produtoKey, nomeAtual, categoriaAtual, onDone){
@@ -1247,7 +1292,7 @@ async function openRenomearModal(produtoKey, nomeAtual, categoriaAtual, onDone){
   sheet.innerHTML = `<p class="hint">Carregando...</p>`;
   modal.classList.add('active');
 
-  const [estoqueList, categoriasMap] = await Promise.all([getAllEstoque(), getAllCategorias()]);
+  const [estoqueList, categoriasMap, marcasMap] = await Promise.all([getAllEstoque(), getAllCategorias(), getAllMarcas()]);
   const outrosProdutos = estoqueList.filter(x=> x.produtoKey !== produtoKey && x.nome);
   const nomeToKey = {};
   outrosProdutos.forEach(x=>{ nomeToKey[x.nome] = x.produtoKey; });
@@ -1290,6 +1335,9 @@ async function openRenomearModal(produtoKey, nomeAtual, categoriaAtual, onDone){
           <input id="pLitragem" placeholder="350ML">
         </div>
       </div>
+      <label style="margin-top:0">Nome completo da marca (opcional)</label>
+      <input id="pNomeCompleto" placeholder="Ex: Jack Daniels">
+      <small class="hint">Só pra exibir/agrupar melhor no app de Baixa. Uma vez cadastrado pra essa marca, não precisa repetir.</small>
       <small class="hint">Nome final: <b id="pPreview">—</b></small>
       <button class="btn secondary" id="confirmPadronizarBtn" style="margin-top:12px">Usar esse nome</button>
     </div>
@@ -1323,11 +1371,13 @@ async function openRenomearModal(produtoKey, nomeAtual, categoriaAtual, onDone){
     }
   };
 
-  async function doRename(nome, btn, originalText){
+  async function doRename(nome, btn, originalText, marca){
     btn.textContent = 'Renomeando...';
     btn.disabled = true;
     try{
-      await renomearProduto(produtoKey, nome);
+      await renomearProduto(produtoKey, nome, marca);
+      const nomeCompleto = document.getElementById('pNomeCompleto') ? document.getElementById('pNomeCompleto').value.trim() : '';
+      if(marca && nomeCompleto) await setMarcaCompleta(marca, nomeCompleto);
       toast('Produto renomeado');
       modal.classList.remove('active');
       if(onDone) onDone();
@@ -1358,12 +1408,20 @@ async function openRenomearModal(produtoKey, nomeAtual, categoriaAtual, onDone){
       document.getElementById('pPreview').textContent = buildName() || '—';
     };
   });
+  document.getElementById('pMarca').addEventListener('input', (e)=>{
+    const marca = e.target.value.trim().toUpperCase().slice(0,8);
+    const nomeCompletoInput = document.getElementById('pNomeCompleto');
+    if(marca && marcasMap[marca] && !nomeCompletoInput.value){
+      nomeCompletoInput.value = marcasMap[marca];
+    }
+  });
 
   document.getElementById('confirmPadronizarBtn').onclick = ()=>{
     const nome = buildName();
     if(!nome){ toast('Preencha pelo menos um campo'); return; }
+    const marca = document.getElementById('pMarca').value.trim().toUpperCase().slice(0,8);
     const btn = document.getElementById('confirmPadronizarBtn');
-    doRename(nome, btn, 'Usar esse nome');
+    doRename(nome, btn, 'Usar esse nome', marca);
   };
 }
 
@@ -2221,11 +2279,11 @@ document.getElementById('importProdutosFile').onchange = async (e)=>{
       const categoria = (row.getCell(5).text || '').trim();
       const minimoRaw = (row.getCell(6).text || '').trim();
       const minimo = minimoRaw ? Number(minimoRaw.replace(',', '.')) : null;
-      rows.push({ produtoKey: normalizeKey(nome), nome, categoria, minimo });
+      rows.push({ produtoKey: normalizeKey(nome), nome, marca, categoria, minimo });
     });
 
     for(const r of rows){
-      await ajustarEstoque(r.produtoKey, 0, r.nome);
+      await ajustarEstoque(r.produtoKey, 0, r.nome, r.marca);
       if(r.categoria) await setCategoria(r.produtoKey, r.categoria);
       if(r.minimo !== null && !isNaN(r.minimo)) await setEstoqueMinimo(r.produtoKey, r.minimo, r.nome);
     }

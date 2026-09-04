@@ -1,4 +1,4 @@
-const CACHE_NAME = 'notas-app-v38';
+const CACHE_NAME = 'notas-app-v39';
 const ASSETS = [
   './index.html',
   './manifest.json',

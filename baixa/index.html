@@ -126,6 +126,11 @@
   .quick-slot .quick-plus{font-size:34px;color:var(--text-dim);text-align:center;}
   .quick-slot .quick-edit{position:absolute;top:8px;right:10px;font-size:16px;color:var(--text-dim);
     background:none;border:none;cursor:pointer;padding:4px;}
+
+  .marca-group{border:2px solid #fff;border-radius:14px;padding:14px 14px 2px;margin-bottom:14px;}
+  .marca-group-label{font-size:20px;font-weight:bold;color:#fff;margin-bottom:10px;
+    text-align:left;letter-spacing:.5px;}
+  .marca-group .card{margin-bottom:12px;}
 </style>
 </head>
 <body>
@@ -208,6 +213,12 @@ async function getAllCategorias(){
   const snap = await fsDB.collection('categorias').get();
   const map = {};
   snap.docs.forEach(d=> map[d.data().produtoKey || d.id] = d.data().categoria);
+  return map;
+}
+async function getAllMarcas(){
+  const snap = await fsDB.collection('marcas').get();
+  const map = {};
+  snap.docs.forEach(d=> map[d.data().marca || d.id] = d.data().nomeCompleto);
   return map;
 }
 async function darBaixaEstoque(produtoKey, nome, quantidade, usuario){
@@ -318,8 +329,42 @@ function quickSlotHtml(produto, index){
     </div>`;
 }
 
+/* Agrupa os produtos filtrados por marca (quando marca está salva no
+   estoque). Cada grupo (2+ produtos da mesma marca) fica junto, ordenado
+   por quem tem menos quantidade primeiro; produtos sem marca ficam soltos.
+   Os blocos (grupos e soltos) são ordenados entre si pela menor quantidade. */
+function agruparPorMarca(list, marcasMap){
+  const porMarca = {};
+  const soltos = [];
+  list.forEach(e=>{
+    if(e.marca){
+      if(!porMarca[e.marca]) porMarca[e.marca] = [];
+      porMarca[e.marca].push(e);
+    } else {
+      soltos.push(e);
+    }
+  });
+  const blocos = [];
+  Object.entries(porMarca).forEach(([marca, itens])=>{
+    if(itens.length < 2){ soltos.push(...itens); return; }
+    itens.sort((a,b)=> (a.quantidade||0) - (b.quantidade||0));
+    blocos.push({ tipo:'grupo', marca, nomeCompleto: marcasMap[marca] || marca, itens, minQtd: itens[0].quantidade||0 });
+  });
+  soltos.forEach(e=> blocos.push({ tipo:'solo', item:e, minQtd: e.quantidade||0 }));
+  blocos.sort((a,b)=> a.minQtd - b.minQtd);
+  return blocos;
+}
+function blocoHtml(bloco){
+  if(bloco.tipo === 'solo') return stockRowHtml(bloco.item);
+  return `
+    <div class="marca-group">
+      <div class="marca-group-label">${escapeHtml(bloco.nomeCompleto)}</div>
+      ${bloco.itens.map(stockRowHtml).join('')}
+    </div>`;
+}
+
 async function renderBaixaTab(){
-  const [estoqueList, categoriasMap, acessoRapido] = await Promise.all([getAllEstoque(), getAllCategorias(), getAcessoRapido()]);
+  const [estoqueList, categoriasMap, acessoRapido, marcasMap] = await Promise.all([getAllEstoque(), getAllCategorias(), getAcessoRapido(), getAllMarcas()]);
   const list = estoqueList.map(e=>({...e, categoria: categoriasMap[e.produtoKey] || 'Sem categoria'}));
 
   if(!list.length){
@@ -371,13 +416,14 @@ async function renderBaixaTab(){
       btn.onclick = (ev)=>{ ev.stopPropagation(); openSlotPicker(parseInt(btn.dataset.slotEdit), list); };
     });
   } else {
-    const filtered = list.filter(e=>e.categoria === selectedCategoria).sort((a,b)=> (a.nome||'').localeCompare(b.nome||''));
+    const filtered = list.filter(e=>e.categoria === selectedCategoria);
+    const blocos = agruparPorMarca(filtered, marcasMap);
     mainEl.innerHTML = `
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">
         <button class="btn ghost" id="backToCategories" style="width:auto;padding:8px 12px">‹ Categorias</button>
         <div class="section-title" style="margin:0">${escapeHtml(selectedCategoria)} (${filtered.length})</div>
       </div>
-      ${filtered.length ? filtered.map(stockRowHtml).join('') : `<div class="empty"><p>Nenhum produto nessa categoria.</p></div>`}
+      ${blocos.length ? blocos.map(blocoHtml).join('') : `<div class="empty"><p>Nenhum produto nessa categoria.</p></div>`}
     `;
     document.getElementById('backToCategories').onclick = ()=>{ selectedCategoria = null; render(); };
     mainEl.querySelectorAll('[data-key]').forEach(card=>{
