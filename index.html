@@ -129,7 +129,7 @@
 <div id="app">
 
   <header>
-    <h1><span class="title-row"><span class="brand">ZERO!</span> Controle</span><small class="app-version">v1.5.0</small></h1>
+    <h1><span class="title-row"><span class="brand">ZERO!</span> Controle</span><small class="app-version">v1.5.1</small></h1>
     <button id="settingsBtn" title="Configurações">⚙</button>
   </header>
 
@@ -407,7 +407,18 @@ async function setMarcaCompleta(marcaAbrev, nomeCompleto){
    agrupar produtos da mesma marca no app de Baixa. */
 async function renomearProduto(oldProdutoKey, novoNome, marca){
   const novoProdutoKey = normalizeKey(novoNome);
-  if(!novoProdutoKey || novoProdutoKey === oldProdutoKey) return { renamed:false };
+  if(!novoProdutoKey) return { renamed:false };
+  if(novoProdutoKey === oldProdutoKey){
+    // Nome não mudou (ex: só queria salvar/atualizar a marca) — atualiza
+    // a marca no lugar em vez de cancelar tudo silenciosamente.
+    if(marca){
+      await fsDB.collection('estoque').doc(sanitizeDocId(oldProdutoKey)).set(
+        { marca, atualizadoEm: new Date().toISOString() }, {merge:true}
+      );
+      return { renamed:true, novoProdutoKey, marcaAtualizada:true };
+    }
+    return { renamed:false };
+  }
 
   const oldEstoqueRef = fsDB.collection('estoque').doc(sanitizeDocId(oldProdutoKey));
   const novoEstoqueRef = fsDB.collection('estoque').doc(sanitizeDocId(novoProdutoKey));
