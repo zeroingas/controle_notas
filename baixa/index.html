@@ -435,7 +435,7 @@ function blocoHtml(bloco){
 }
 
 async function renderBaixaTab(){
-  const [estoqueList, categoriasMap, acessoRapido, marcasMap] = await Promise.all([getAllEstoque(), getAllCategorias(), getAcessoRapido(), getAllMarcas()]);
+  const [estoqueList, categoriasMap, acessoRapido, marcasMap, ultimasBaixas] = await Promise.all([getAllEstoque(), getAllCategorias(), getAcessoRapido(), getAllMarcas(), getRecentBaixas(2)]);
   const list = estoqueList.map(e=>({...e, categoria: categoriasMap[e.produtoKey] || 'Sem categoria'}));
 
   if(!list.length){
@@ -458,6 +458,19 @@ async function renderBaixaTab(){
       return a.localeCompare(b);
     });
     mainEl.innerHTML =
+      (ultimasBaixas.length ? `
+      <div class="section-title">🕐 Últimas baixas</div>
+      <div class="card">
+        ${ultimasBaixas.map(b=>`
+          <div class="row" style="align-items:center;justify-content:space-between;${b!==ultimasBaixas[0] ? 'margin-top:8px' : ''}">
+            <div>
+              <div style="font-size:16px">${escapeHtml(b.nome||'(sem nome)')}</div>
+              <div class="item-meta">${formatDateHora(b.criadoEm)} · ${escapeHtml(b.usuarioNome||'?')}</div>
+            </div>
+            <div class="price">-${b.quantidade}</div>
+          </div>
+        `).join('')}
+      </div>` : '') +
       `<div class="section-title">⭐ Acesso rápido</div>
       <div class="grid2" id="quickSlots">
         ${acessoRapido.map((key,i)=> quickSlotHtml(key ? byKey[key] : null, i)).join('')}
