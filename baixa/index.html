@@ -72,6 +72,12 @@
     .dar-baixa-col-right{max-width:none;flex:1 1 auto;width:100%;}
   }
 
+  .dar-baixa-produtos{column-count:2;column-gap:20px;}
+  .dar-baixa-produtos .card,.dar-baixa-produtos .marca-group{break-inside:avoid;-webkit-column-break-inside:avoid;}
+  @media (max-width:700px){
+    .dar-baixa-produtos{column-count:1;}
+  }
+
   label{display:block;font-size:16px;color:var(--text-dim);text-transform:uppercase;
     letter-spacing:.5px;margin-bottom:6px;margin-top:14px;}
   label:first-child{margin-top:0;}
@@ -525,7 +531,7 @@ async function renderBaixaTab(){
         <button class="btn ghost" id="backToCategories" style="width:auto;padding:8px 12px">‹ Categorias</button>
         <div class="section-title" style="margin:0">${escapeHtml(selectedCategoria)} (${filtered.length})</div>
       </div>
-      ${blocos.length ? blocos.map(blocoHtml).join('') : `<div class="empty"><p>Nenhum produto nessa categoria.</p></div>`}
+      ${blocos.length ? `<div class="dar-baixa-produtos">${blocos.map(blocoHtml).join('')}</div>` : `<div class="empty"><p>Nenhum produto nessa categoria.</p></div>`}
     `;
     document.getElementById('backToCategories').onclick = ()=>{ selectedCategoria = null; render(); };
     mainEl.querySelectorAll('[data-key]').forEach(card=>{
