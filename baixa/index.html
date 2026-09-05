@@ -247,12 +247,13 @@ async function getRecentBaixas(limit){
   return snap.docs.map(d=>({id:d.id, ...d.data()}));
 }
 async function getBaixasDaSessao(usuarioId, desde){
-  const snap = await fsDB.collection('baixas')
-    .where('usuarioId','==',usuarioId)
-    .where('criadoEm','>=',desde)
-    .orderBy('criadoEm')
-    .get();
-  return snap.docs.map(d=>({id:d.id, ...d.data()}));
+  // Só um filtro (usuarioId) pra não depender de índice composto no Firestore;
+  // o corte por data e a ordenação são feitos aqui no cliente.
+  const snap = await fsDB.collection('baixas').where('usuarioId','==',usuarioId).get();
+  return snap.docs
+    .map(d=>({id:d.id, ...d.data()}))
+    .filter(b=> b.criadoEm >= desde)
+    .sort((a,b)=> a.criadoEm.localeCompare(b.criadoEm));
 }
 
 const ACESSO_RAPIDO_SLOTS = 4;
@@ -317,7 +318,12 @@ async function showResumoSessao(){
   modal.classList.add('active');
   document.getElementById('closeBaixa').onclick = ()=> modal.classList.remove('active');
 
-  const baixas = await getBaixasDaSessao(currentUser.id, sessaoIniciadaEm || new Date().toISOString());
+  let baixas = [];
+  try{
+    baixas = await getBaixasDaSessao(currentUser.id, sessaoIniciadaEm || new Date().toISOString());
+  }catch(err){
+    toast('Não consegui carregar o resumo: ' + err.message);
+  }
 
   const listHtml = baixas.length ? baixas.map(b=>`
     <div class="row" style="align-items:center;justify-content:space-between;margin-top:8px">
