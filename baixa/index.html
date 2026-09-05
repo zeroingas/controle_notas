@@ -246,6 +246,14 @@ async function getRecentBaixas(limit){
   const snap = await fsDB.collection('baixas').orderBy('criadoEm','desc').limit(limit||50).get();
   return snap.docs.map(d=>({id:d.id, ...d.data()}));
 }
+async function getBaixasDaSessao(usuarioId, desde){
+  const snap = await fsDB.collection('baixas')
+    .where('usuarioId','==',usuarioId)
+    .where('criadoEm','>=',desde)
+    .orderBy('criadoEm')
+    .get();
+  return snap.docs.map(d=>({id:d.id, ...d.data()}));
+}
 
 const ACESSO_RAPIDO_SLOTS = 4;
 async function getAcessoRapido(){
@@ -285,6 +293,7 @@ function toast(msg){
 let currentTab = 'baixa';
 let selectedCategoria = null;
 let currentUser = null;
+let sessaoIniciadaEm = null;
 const mainEl = document.getElementById('main');
 
 document.querySelectorAll('#tabs button').forEach(btn=>{
@@ -296,7 +305,45 @@ document.querySelectorAll('#tabs button').forEach(btn=>{
     render();
   });
 });
-document.getElementById('userChip').onclick = ()=> openAuthScreen(true);
+document.getElementById('userChip').onclick = ()=> showResumoSessao();
+
+async function showResumoSessao(){
+  if(!currentUser){ openAuthScreen(true); return; }
+  const modal = document.getElementById('baixaModal');
+  const sheet = document.getElementById('baixaSheet');
+  sheet.innerHTML = `<button class="close-x" id="closeBaixa">✕</button>
+    <div class="section-title">Resumo da sessão — ${escapeHtml(currentUser.nome)}</div>
+    <p class="item-meta">Carregando...</p>`;
+  modal.classList.add('active');
+  document.getElementById('closeBaixa').onclick = ()=> modal.classList.remove('active');
+
+  const baixas = await getBaixasDaSessao(currentUser.id, sessaoIniciadaEm || new Date().toISOString());
+
+  const listHtml = baixas.length ? baixas.map(b=>`
+    <div class="row" style="align-items:center;justify-content:space-between;margin-top:8px">
+      <div>
+        <div style="font-size:18px">${escapeHtml(b.nome||'(sem nome)')}</div>
+        <div class="item-meta">${formatDateHora(b.criadoEm)}</div>
+      </div>
+      <div class="price">-${b.quantidade}</div>
+    </div>
+  `).join('') : `<p class="item-meta">Nenhuma baixa registrada nessa sessão.</p>`;
+
+  sheet.innerHTML = `
+    <button class="close-x" id="closeBaixa">✕</button>
+    <div class="section-title">Resumo da sessão — ${escapeHtml(currentUser.nome)}</div>
+    <p class="item-meta">${baixas.length} baixa(s) registrada(s)</p>
+    <div class="card">${listHtml}</div>
+    <button class="btn" id="confirmTrocarBtn" style="margin-top:16px">Trocar usuário</button>
+    <button class="btn ghost" id="cancelTrocarBtn" style="margin-top:10px">Continuar como ${escapeHtml(currentUser.nome)}</button>
+  `;
+  document.getElementById('closeBaixa').onclick = ()=> modal.classList.remove('active');
+  document.getElementById('cancelTrocarBtn').onclick = ()=> modal.classList.remove('active');
+  document.getElementById('confirmTrocarBtn').onclick = ()=>{
+    modal.classList.remove('active');
+    openAuthScreen(true);
+  };
+}
 
 async function render(){
   if(currentTab==='baixa') return renderBaixaTab();
@@ -651,6 +698,7 @@ async function pinDigit(d){
   if(pendingPin.length === 4){
     if(pendingPin === pendingUser.pin){
       currentUser = pendingUser;
+      sessaoIniciadaEm = new Date().toISOString();
       document.getElementById('userChip').innerHTML = `Trocar<b>${escapeHtml(currentUser.nome)}</b>`;
       closeAuthScreen();
       selectedCategoria = null;
