@@ -388,8 +388,9 @@ function showResumoAnteriorParaNovoUsuario(){
 }
 
 async function render(){
-  if(currentTab==='baixa') return renderBaixaTab();
-  if(currentTab==='historico') return renderHistoricoTab();
+  if(currentTab==='baixa') await renderBaixaTab();
+  else if(currentTab==='historico') await renderHistoricoTab();
+  window.scrollTo(0,0);
 }
 
 /* ============ Tab: Dar Baixa ============ */
