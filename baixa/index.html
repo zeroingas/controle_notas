@@ -24,7 +24,7 @@
   *{box-sizing:border-box; -webkit-tap-highlight-color:transparent; touch-action:manipulation;}
   html,body{margin:0;padding:0;background:var(--bg);color:var(--text);
     font-family:'Courier New',ui-monospace,monospace; height:100%; overflow-x:hidden;}
-  #app{max-width:760px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column;}
+  #app{max-width:1400px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column;}
 
   header{padding:20px 20px 16px;border-bottom:2px solid var(--red-dim);
     display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;
@@ -37,7 +37,7 @@
 
   main{flex:1;padding:18px 18px 110px;display:flex;flex-direction:column;}
 
-  nav#tabs{position:fixed;bottom:0;left:0;right:0;max-width:760px;margin:0 auto;
+  nav#tabs{position:fixed;bottom:0;left:0;right:0;max-width:1400px;margin:0 auto;
     display:flex;background:var(--bg-elev);border-top:1px solid var(--line);z-index:10;}
   nav#tabs button{flex:1;background:none;border:none;color:var(--text-dim);
     padding:16px 4px 14px;font-family:inherit;font-size:18px;letter-spacing:.5px;
@@ -59,6 +59,18 @@
 
   .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
   .grid2 .card{margin-bottom:0;}
+
+  .dar-baixa-cols{display:flex;gap:24px;align-items:flex-start;}
+  .dar-baixa-col-left{flex:1 1 0;min-width:0;}
+  .dar-baixa-col-right{flex:0 0 260px;max-width:260px;}
+  .dar-baixa-col-right .section-title{font-size:14px;}
+  .dar-baixa-col-right .card{padding:12px 14px;margin-bottom:0;}
+  .dar-baixa-col-right .item-meta{font-size:12px;}
+  .dar-baixa-col-right .price{font-size:16px;}
+  @media (max-width:700px){
+    .dar-baixa-cols{flex-direction:column;}
+    .dar-baixa-col-right{max-width:none;flex:1 1 auto;width:100%;}
+  }
 
   label{display:block;font-size:16px;color:var(--text-dim);text-transform:uppercase;
     letter-spacing:.5px;margin-bottom:6px;margin-top:14px;}
@@ -457,32 +469,38 @@ async function renderBaixaTab(){
       if(b==='Sem categoria') return -1;
       return a.localeCompare(b);
     });
-    mainEl.innerHTML =
-      (ultimasBaixas.length ? `
-      <div class="section-title">🕐 Últimas baixas</div>
-      <div class="card">
-        ${ultimasBaixas.map(b=>`
-          <div class="row" style="align-items:center;justify-content:space-between;${b!==ultimasBaixas[0] ? 'margin-top:8px' : ''}">
-            <div>
-              <div style="font-size:16px">${escapeHtml(b.nome||'(sem nome)')}</div>
-              <div class="item-meta">${formatDateHora(b.criadoEm)} · ${escapeHtml(b.usuarioNome||'?')}</div>
-            </div>
-            <div class="price">-${b.quantidade}</div>
+    mainEl.innerHTML = `
+      <div class="dar-baixa-cols">
+        <div class="dar-baixa-col-left">
+          <div class="section-title">⭐ Acesso rápido</div>
+          <div class="grid2" id="quickSlots">
+            ${acessoRapido.map((key,i)=> quickSlotHtml(key ? byKey[key] : null, i)).join('')}
           </div>
-        `).join('')}
-      </div>` : '') +
-      `<div class="section-title">⭐ Acesso rápido</div>
-      <div class="grid2" id="quickSlots">
-        ${acessoRapido.map((key,i)=> quickSlotHtml(key ? byKey[key] : null, i)).join('')}
-      </div>
-      <div class="section-title">${list.length} produtos · ${categoriaNames.length} categoria(s)</div>
-      <div class="grid2">
-        ${categoriaNames.map(cat=>`
-          <div class="card" data-categoria="${escapeHtml(cat)}" style="cursor:pointer">
-            <div style="font-size:20px;font-weight:bold">${escapeHtml(cat)}</div>
-            <div class="item-meta">${groups[cat].length} produto(s)</div>
+          <div class="section-title">${list.length} produtos · ${categoriaNames.length} categoria(s)</div>
+          <div class="grid2">
+            ${categoriaNames.map(cat=>`
+              <div class="card" data-categoria="${escapeHtml(cat)}" style="cursor:pointer">
+                <div style="font-size:20px;font-weight:bold">${escapeHtml(cat)}</div>
+                <div class="item-meta">${groups[cat].length} produto(s)</div>
+              </div>
+            `).join('')}
           </div>
-        `).join('')}
+        </div>
+        <div class="dar-baixa-col-right">
+          ${ultimasBaixas.length ? `
+          <div class="section-title">🕐 Últimas baixas</div>
+          <div class="card">
+            ${ultimasBaixas.map(b=>`
+              <div class="row" style="align-items:center;justify-content:space-between;${b!==ultimasBaixas[0] ? 'margin-top:8px' : ''}">
+                <div>
+                  <div style="font-size:13px">${escapeHtml(b.nome||'(sem nome)')}</div>
+                  <div class="item-meta">${formatDateHora(b.criadoEm)} · ${escapeHtml(b.usuarioNome||'?')}</div>
+                </div>
+                <div class="price">-${b.quantidade}</div>
+              </div>
+            `).join('')}
+          </div>` : ''}
+        </div>
       </div>`;
     mainEl.querySelectorAll('[data-categoria]').forEach(card=>{
       card.onclick = ()=>{ selectedCategoria = card.dataset.categoria; render(); };
