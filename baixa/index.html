@@ -309,7 +309,7 @@ document.querySelectorAll('#tabs button').forEach(btn=>{
 document.getElementById('userChip').onclick = ()=> showResumoSessao();
 
 async function showResumoSessao(){
-  if(!currentUser){ openAuthScreen(true); return; }
+  if(!currentUser){ openAuthScreen(false); return; }
   const modal = document.getElementById('baixaModal');
   const sheet = document.getElementById('baixaSheet');
   sheet.innerHTML = `<button class="close-x" id="closeBaixa">✕</button>
@@ -347,7 +347,7 @@ async function showResumoSessao(){
   document.getElementById('cancelTrocarBtn').onclick = ()=> modal.classList.remove('active');
   document.getElementById('confirmTrocarBtn').onclick = ()=>{
     modal.classList.remove('active');
-    openAuthScreen(true);
+    openAuthScreen(false);
   };
 }
 
@@ -658,13 +658,13 @@ async function renderUserPicker(allowCancel){
   `;
   wrap.querySelectorAll('[data-user-id]').forEach(btn=>{
     const u = usuarios.find(x=>x.id===btn.dataset.userId);
-    btn.onclick = ()=> renderPinPad(u);
+    btn.onclick = ()=> renderPinPad(u, allowCancel);
   });
-  document.getElementById('newUserBtn').onclick = renderNewUserForm;
+  document.getElementById('newUserBtn').onclick = ()=> renderNewUserForm(allowCancel);
   if(allowCancel) document.getElementById('cancelAuthBtn').onclick = closeAuthScreen;
 }
 
-function renderPinPad(user){
+function renderPinPad(user, allowCancel){
   pendingUser = user;
   pendingPin = '';
   const wrap = document.getElementById('authWrap');
@@ -688,7 +688,7 @@ function renderPinPad(user){
     pendingPin = pendingPin.slice(0,-1);
     updatePinDots();
   };
-  document.getElementById('pinCancel').onclick = ()=> renderUserPicker(true);
+  document.getElementById('pinCancel').onclick = ()=> renderUserPicker(allowCancel);
 }
 
 function updatePinDots(){
@@ -717,7 +717,7 @@ async function pinDigit(d){
   }
 }
 
-function renderNewUserForm(){
+function renderNewUserForm(allowCancel){
   const wrap = document.getElementById('authWrap');
   wrap.innerHTML = `
     <div class="section-title" style="text-align:center">Novo usuário</div>
@@ -732,7 +732,7 @@ function renderNewUserForm(){
     </div>
     <button class="btn ghost" id="cancelNewUserBtn" style="margin-top:10px">Voltar</button>
   `;
-  document.getElementById('cancelNewUserBtn').onclick = ()=> renderUserPicker(true);
+  document.getElementById('cancelNewUserBtn').onclick = ()=> renderUserPicker(allowCancel);
   document.getElementById('saveNewUserBtn').onclick = async ()=>{
     const nome = document.getElementById('f-novo-nome').value.trim();
     const pin = document.getElementById('f-novo-pin').value.trim();
@@ -743,7 +743,7 @@ function renderNewUserForm(){
     try{
       await addUsuario(nome, pin);
       toast('Usuário cadastrado');
-      renderUserPicker(true);
+      renderUserPicker(allowCancel);
     }catch(err){
       toast('Erro ao cadastrar: ' + err.message);
     }
