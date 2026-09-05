@@ -129,7 +129,7 @@
 <div id="app">
 
   <header>
-    <h1><span class="title-row"><span class="brand">ZERO!</span> Controle</span><small class="app-version">v1.7.0</small></h1>
+    <h1><span class="title-row"><span class="brand">ZERO!</span> Controle</span><small class="app-version">v1.8.0</small></h1>
     <button id="settingsBtn" title="Configurações">⚙</button>
   </header>
 
@@ -203,12 +203,24 @@
       <small class="hint">Quando você corrige o nome de um produto na conferência, o app lembra disso pras próximas notas com o mesmo texto bruto.</small>
       <button class="btn secondary" id="manageAliasesBtn" style="margin-top:10px">Ver/editar padrões</button>
     </div>
+
+    <div style="margin-top:24px;border-top:1px solid var(--line);padding-top:16px">
+      <label>Produtos vendidos por caixa/meia caixa</label>
+      <small class="hint">Pra produtos como long neck (cerveja, Smirnoff Ice, Skol Beats) que vêm da nota em caixa mas às vezes só sai meia caixa do estoque. Marque aqui quais produtos funcionam assim — no app Baixa, a baixa deles vira dois botões (caixa inteira / meia caixa) em vez de digitar quantidade.</small>
+      <button class="btn secondary" id="manageCaixaBtn" style="margin-top:10px">Gerenciar produtos por caixa</button>
+    </div>
   </div>
 </div>
 
 <!-- Aliases Modal -->
 <div class="modal" id="aliasesModal">
   <div class="modal-sheet" id="aliasesSheet">
+  </div>
+</div>
+
+<!-- Caixa/Meia Caixa Modal -->
+<div class="modal" id="caixaModal">
+  <div class="modal-sheet" id="caixaSheet">
   </div>
 </div>
 
@@ -519,6 +531,13 @@ async function setEstoqueMinimo(produtoKey, valor, nome){
   if(nome) payload.nome = nome;
   await ref.set(payload, {merge:true});
 }
+async function setVendidoPorCaixaEmLote(produtoKeys, valor){
+  const batch = fsDB.batch();
+  produtoKeys.forEach(key=>{
+    batch.set(fsDB.collection('estoque').doc(sanitizeDocId(key)), { vendidoPorCaixa: valor }, {merge:true});
+  });
+  await batch.commit();
+}
 async function upsertEstoqueRaw(e){
   if(!e.produtoKey) return;
   await fsDB.collection('estoque').doc(sanitizeDocId(e.produtoKey)).set(e, {merge:true});
@@ -551,7 +570,7 @@ function pushBackGuard(){
 pushBackGuard();
 
 window.addEventListener('popstate', ()=>{
-  for(const id of ['padronizarModal','aliasesModal','reviewModal','settingsModal']){
+  for(const id of ['padronizarModal','aliasesModal','caixaModal','reviewModal','settingsModal']){
     const el = document.getElementById(id);
     if(el && el.classList.contains('active')){
       el.classList.remove('active');
@@ -1647,7 +1666,7 @@ function stockCardHtml(e){
           <div class="item-meta">${partes.join(' · ')}</div>
         </div>
         <div style="text-align:right">
-          <div class="price">${e.quantidade ?? 0}</div>
+          <div class="price">${e.quantidade ?? 0}${e.vendidoPorCaixa ? ' cx' : ''}</div>
           ${e.baixo ? `<span class="tag up">⚠ baixo</span>` : ''}
         </div>
       </div>
@@ -1755,13 +1774,13 @@ function openStockDetail(produtoKey, e){
     <button class="close-x" id="closeReview">✕</button>
     <div class="section-title">${escapeHtml(e.nome||'(sem nome)')}</div>
     <button type="button" class="btn ghost" id="renomearProdutoBtn" style="width:auto;padding:4px 8px;font-size:12px;margin-bottom:10px">🏷 Renomear</button>
-    <div class="item-meta">Quantidade atual: <b>${e.quantidade ?? 0}</b></div>
+    <div class="item-meta">Quantidade atual: <b>${e.quantidade ?? 0}${e.vendidoPorCaixa ? ' cx' : ''}</b></div>
     <label>Estoque mínimo (lembrete de compra)</label>
     <input id="f-estmin" type="number" step="1" value="${e.estoqueMinimo ?? 0}">
     ${e.atualizadoEm ? `<small class="hint">${dataAtualizacaoHtml(e.atualizadoEm)}</small>` : ''}
     <div style="margin-top:24px;border-top:1px solid var(--line);padding-top:16px">
-      <label>Corrigir quantidade em estoque</label>
-      <input id="f-ajuste" type="number" step="1" value="${e.quantidade ?? 0}">
+      <label>Corrigir quantidade em estoque${e.vendidoPorCaixa ? ' (em caixas, ex: 8.5)' : ''}</label>
+      <input id="f-ajuste" type="number" step="${e.vendidoPorCaixa ? '0.5' : '1'}" value="${e.quantidade ?? 0}">
       <small class="hint">Use isso pra acertar o número quando estiver errado (ex: contagem física, estoque inicial).</small>
     </div>
     <div style="margin-top:16px">
@@ -1943,6 +1962,57 @@ async function openAliasesManager(){
   renderList();
 }
 document.getElementById('manageAliasesBtn').onclick = openAliasesManager;
+
+async function openCaixaManager(){
+  const modal = document.getElementById('caixaModal');
+  const sheet = document.getElementById('caixaSheet');
+  sheet.innerHTML = `<button class="close-x" data-close="caixaModal">✕</button>
+    <div class="section-title">Produtos vendidos por caixa</div>
+    <p class="hint" style="margin-bottom:12px">Carregando...</p>`;
+  modal.classList.add('active');
+  document.querySelectorAll('#caixaModal [data-close]').forEach(b=>{
+    b.onclick = ()=> modal.classList.remove('active');
+  });
+
+  const estoqueList = (await getAllEstoque()).sort((a,b)=> (a.nome||'').localeCompare(b.nome||''));
+
+  sheet.innerHTML = `
+    <button class="close-x" id="closeCaixaManager">✕</button>
+    <div class="section-title">Produtos vendidos por caixa</div>
+    <small class="hint">Marque os produtos que vêm da nota em caixa mas às vezes só sai meia caixa do estoque (ex: long neck de cerveja, Smirnoff Ice, Skol Beats). No app Baixa, esses produtos ganham botões de "caixa inteira" / "meia caixa" em vez de digitar quantidade.</small>
+    <div class="card" style="margin-top:12px;max-height:50vh;overflow-y:auto">
+      ${estoqueList.map(e=>`
+        <label style="display:flex;align-items:center;gap:10px;margin-top:10px;text-transform:none;letter-spacing:0">
+          <input type="checkbox" class="caixa-check" data-key="${escapeHtml(e.produtoKey)}" ${e.vendidoPorCaixa ? 'checked' : ''} style="width:auto">
+          <span>${escapeHtml(e.nome||'(sem nome)')}</span>
+        </label>
+      `).join('')}
+    </div>
+    <button class="btn" id="salvarCaixaBtn" style="margin-top:16px">Salvar</button>
+  `;
+  document.getElementById('closeCaixaManager').onclick = ()=> modal.classList.remove('active');
+  document.getElementById('salvarCaixaBtn').onclick = async ()=>{
+    const btn = document.getElementById('salvarCaixaBtn');
+    const originalText = btn.textContent;
+    btn.textContent = 'Salvando...';
+    btn.disabled = true;
+    try{
+      const checks = Array.from(document.querySelectorAll('.caixa-check'));
+      const marcar = checks.filter(c=>c.checked && !estoqueList.find(e=>e.produtoKey===c.dataset.key).vendidoPorCaixa).map(c=>c.dataset.key);
+      const desmarcar = checks.filter(c=>!c.checked && estoqueList.find(e=>e.produtoKey===c.dataset.key).vendidoPorCaixa).map(c=>c.dataset.key);
+      if(marcar.length) await setVendidoPorCaixaEmLote(marcar, true);
+      if(desmarcar.length) await setVendidoPorCaixaEmLote(desmarcar, false);
+      toast('Salvo');
+      modal.classList.remove('active');
+      if(currentTab==='stock') renderStock();
+    }catch(err){
+      toast('Erro ao salvar: ' + err.message);
+      btn.textContent = originalText;
+      btn.disabled = false;
+    }
+  };
+}
+document.getElementById('manageCaixaBtn').onclick = openCaixaManager;
 
 document.getElementById('exportBtn').onclick = async ()=>{
   const notas = await getAllNotas();

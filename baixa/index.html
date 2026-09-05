@@ -312,7 +312,7 @@ function stockRowHtml(e){
           <div style="font-size:22px">${escapeHtml(e.nome||'(sem nome)')}</div>
           ${e.categoria && e.categoria!=='Sem categoria' ? `<div class="item-meta">${escapeHtml(e.categoria)}</div>` : ''}
         </div>
-        <div class="price">${e.quantidade ?? 0}</div>
+        <div class="price">${e.quantidade ?? 0}${e.vendidoPorCaixa ? ' cx' : ''}</div>
       </div>
     </div>`;
 }
@@ -325,7 +325,7 @@ function quickSlotHtml(produto, index){
     <div class="quick-slot filled" data-slot-key="${escapeHtml(produto.produtoKey)}">
       <button type="button" class="quick-edit" data-slot-edit="${index}">✏️</button>
       <div style="font-size:20px">${escapeHtml(produto.nome||'(sem nome)')}</div>
-      <div class="price">${produto.quantidade ?? 0}</div>
+      <div class="price">${produto.quantidade ?? 0}${produto.vendidoPorCaixa ? ' cx' : ''}</div>
     </div>`;
 }
 
@@ -432,17 +432,29 @@ async function renderBaixaTab(){
   }
 }
 
-function openBaixaModal(produto){
-  const modal = document.getElementById('baixaModal');
-  const sheet = document.getElementById('baixaSheet');
+async function confirmarBaixa(modal, produto, qtd, btn, originalText){
+  if(qtd <= 0){ toast('Quantidade inválida'); return; }
+  btn.textContent = 'Salvando...'; btn.disabled = true;
+  try{
+    await darBaixaEstoque(produto.produtoKey, produto.nome, qtd, currentUser);
+    toast(`Baixa de ${qtd}${produto.vendidoPorCaixa ? ' cx' : ''} registrada`);
+    modal.classList.remove('active');
+    render();
+  }catch(err){
+    toast('Erro: ' + err.message);
+    btn.textContent = originalText; btn.disabled = false;
+  }
+}
+
+function renderBaixaManual(modal, sheet, produto){
   sheet.innerHTML = `
     <button class="close-x" id="closeBaixa">✕</button>
     <div class="section-title">${escapeHtml(produto.nome||'(sem nome)')}</div>
-    <div class="item-meta">Quantidade atual: <b>${produto.quantidade ?? 0}</b></div>
-    <label>Quantidade pra dar baixa</label>
+    <div class="item-meta">Quantidade atual: <b>${produto.quantidade ?? 0}${produto.vendidoPorCaixa ? ' cx' : ''}</b></div>
+    <label>Quantidade pra dar baixa${produto.vendidoPorCaixa ? ' (em caixas)' : ''}</label>
     <div class="row" style="align-items:center;gap:10px">
       <button class="btn secondary" id="qtyMinus" style="width:48px">−</button>
-      <input id="f-qtd" type="number" step="1" min="1" value="1" style="text-align:center">
+      <input id="f-qtd" type="number" step="${produto.vendidoPorCaixa ? '0.5' : '1'}" min="${produto.vendidoPorCaixa ? '0.5' : '1'}" value="1" style="text-align:center">
       <button class="btn secondary" id="qtyPlus" style="width:48px">+</button>
     </div>
     <div style="margin-top:16px">
@@ -450,30 +462,53 @@ function openBaixaModal(produto){
     </div>
     <small class="hint" style="text-align:center;margin-top:10px">Responsável: ${escapeHtml(currentUser.nome)}</small>
   `;
+  const passo = produto.vendidoPorCaixa ? 0.5 : 1;
   document.getElementById('closeBaixa').onclick = ()=> modal.classList.remove('active');
   document.getElementById('qtyMinus').onclick = ()=>{
     const inp = document.getElementById('f-qtd');
-    inp.value = Math.max(1, (parseFloat(inp.value)||1) - 1);
+    inp.value = Math.max(passo, (parseFloat(inp.value)||passo) - passo);
   };
   document.getElementById('qtyPlus').onclick = ()=>{
     const inp = document.getElementById('f-qtd');
-    inp.value = (parseFloat(inp.value)||1) + 1;
+    inp.value = (parseFloat(inp.value)||0) + passo;
   };
-  document.getElementById('confirmBaixaBtn').onclick = async ()=>{
+  document.getElementById('confirmBaixaBtn').onclick = ()=>{
     const qtd = parseFloat(document.getElementById('f-qtd').value) || 0;
-    if(qtd <= 0){ toast('Quantidade inválida'); return; }
     const btn = document.getElementById('confirmBaixaBtn');
-    btn.textContent = 'Salvando...'; btn.disabled = true;
-    try{
-      await darBaixaEstoque(produto.produtoKey, produto.nome, qtd, currentUser);
-      toast(`Baixa de ${qtd} registrada`);
-      modal.classList.remove('active');
-      render();
-    }catch(err){
-      toast('Erro: ' + err.message);
-      btn.textContent = 'Confirmar baixa'; btn.disabled = false;
-    }
+    confirmarBaixa(modal, produto, qtd, btn, 'Confirmar baixa');
   };
+}
+
+function openBaixaModal(produto){
+  const modal = document.getElementById('baixaModal');
+  const sheet = document.getElementById('baixaSheet');
+
+  if(!produto.vendidoPorCaixa){
+    renderBaixaManual(modal, sheet, produto);
+    modal.classList.add('active');
+    return;
+  }
+
+  sheet.innerHTML = `
+    <button class="close-x" id="closeBaixa">✕</button>
+    <div class="section-title">${escapeHtml(produto.nome||'(sem nome)')}</div>
+    <div class="item-meta">Quantidade atual: <b>${produto.quantidade ?? 0} cx</b></div>
+    <label>Quanto vai sair do estoque?</label>
+    <div class="row" style="gap:10px;margin-top:6px">
+      <button class="btn" id="baixaCaixaBtn" style="flex:1">📦 Caixa inteira</button>
+      <button class="btn secondary" id="baixaMeiaBtn" style="flex:1">📦 Meia caixa</button>
+    </div>
+    <button class="btn ghost" id="outraQtdBtn" style="margin-top:12px">Outra quantidade</button>
+    <small class="hint" style="text-align:center;margin-top:10px">Responsável: ${escapeHtml(currentUser.nome)}</small>
+  `;
+  document.getElementById('closeBaixa').onclick = ()=> modal.classList.remove('active');
+  document.getElementById('baixaCaixaBtn').onclick = ()=>{
+    confirmarBaixa(modal, produto, 1, document.getElementById('baixaCaixaBtn'), '📦 Caixa inteira');
+  };
+  document.getElementById('baixaMeiaBtn').onclick = ()=>{
+    confirmarBaixa(modal, produto, 0.5, document.getElementById('baixaMeiaBtn'), '📦 Meia caixa');
+  };
+  document.getElementById('outraQtdBtn').onclick = ()=> renderBaixaManual(modal, sheet, produto);
   modal.classList.add('active');
 }
 
