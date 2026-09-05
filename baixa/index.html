@@ -308,24 +308,8 @@ document.querySelectorAll('#tabs button').forEach(btn=>{
 });
 document.getElementById('userChip').onclick = ()=> showResumoSessao();
 
-async function showResumoSessao(){
-  if(!currentUser){ openAuthScreen(false); return; }
-  const modal = document.getElementById('baixaModal');
-  const sheet = document.getElementById('baixaSheet');
-  sheet.innerHTML = `<button class="close-x" id="closeBaixa">✕</button>
-    <div class="section-title">Resumo da sessão — ${escapeHtml(currentUser.nome)}</div>
-    <p class="item-meta">Carregando...</p>`;
-  modal.classList.add('active');
-  document.getElementById('closeBaixa').onclick = ()=> modal.classList.remove('active');
-
-  let baixas = [];
-  try{
-    baixas = await getBaixasDaSessao(currentUser.id, sessaoIniciadaEm || new Date().toISOString());
-  }catch(err){
-    toast('Não consegui carregar o resumo: ' + err.message);
-  }
-
-  const listHtml = baixas.length ? baixas.map(b=>`
+function resumoListHtml(baixas){
+  return baixas.length ? baixas.map(b=>`
     <div class="row" style="align-items:center;justify-content:space-between;margin-top:8px">
       <div>
         <div style="font-size:18px">${escapeHtml(b.nome||'(sem nome)')}</div>
@@ -334,21 +318,55 @@ async function showResumoSessao(){
       <div class="price">-${b.quantidade}</div>
     </div>
   `).join('') : `<p class="item-meta">Nenhuma baixa registrada nessa sessão.</p>`;
+}
+
+let resumoAnterior = null;
+
+async function showResumoSessao(){
+  if(!currentUser){ openAuthScreen(false); return; }
+  const modal = document.getElementById('baixaModal');
+  const sheet = document.getElementById('baixaSheet');
+  sheet.innerHTML = `<div class="section-title">Resumo da sessão — ${escapeHtml(currentUser.nome)}</div>
+    <p class="item-meta">Carregando...</p>`;
+  modal.classList.add('active');
+
+  let baixas = [];
+  try{
+    baixas = await getBaixasDaSessao(currentUser.id, sessaoIniciadaEm || new Date().toISOString());
+  }catch(err){
+    toast('Não consegui carregar o resumo: ' + err.message);
+  }
 
   sheet.innerHTML = `
-    <button class="close-x" id="closeBaixa">✕</button>
     <div class="section-title">Resumo da sessão — ${escapeHtml(currentUser.nome)}</div>
     <p class="item-meta">${baixas.length} baixa(s) registrada(s)</p>
-    <div class="card">${listHtml}</div>
+    <div class="card">${resumoListHtml(baixas)}</div>
     <button class="btn" id="confirmTrocarBtn" style="margin-top:16px">Trocar usuário</button>
-    <button class="btn ghost" id="cancelTrocarBtn" style="margin-top:10px">Continuar como ${escapeHtml(currentUser.nome)}</button>
   `;
-  document.getElementById('closeBaixa').onclick = ()=> modal.classList.remove('active');
-  document.getElementById('cancelTrocarBtn').onclick = ()=> modal.classList.remove('active');
   document.getElementById('confirmTrocarBtn').onclick = ()=>{
+    resumoAnterior = { nome: currentUser.nome, baixas };
     modal.classList.remove('active');
     openAuthScreen(false);
   };
+}
+
+function showResumoAnteriorParaNovoUsuario(){
+  if(!resumoAnterior) return;
+  const modal = document.getElementById('baixaModal');
+  const sheet = document.getElementById('baixaSheet');
+  const { nome, baixas } = resumoAnterior;
+  resumoAnterior = null;
+  sheet.innerHTML = `
+    <div class="section-title">Baixas de ${escapeHtml(nome)}</div>
+    <p class="item-meta">${baixas.length} baixa(s) na sessão anterior</p>
+    <div class="card">${resumoListHtml(baixas)}</div>
+    <button class="btn" id="continuarNovoUsuarioBtn" style="margin-top:16px">Continuar</button>
+  `;
+  document.getElementById('continuarNovoUsuarioBtn').onclick = ()=>{
+    modal.classList.remove('active');
+    render();
+  };
+  modal.classList.add('active');
 }
 
 async function render(){
@@ -708,7 +726,8 @@ async function pinDigit(d){
       document.getElementById('userChip').innerHTML = `Trocar<b>${escapeHtml(currentUser.nome)}</b>`;
       closeAuthScreen();
       selectedCategoria = null;
-      render();
+      if(resumoAnterior) showResumoAnteriorParaNovoUsuario();
+      else render();
     } else {
       toast('PIN incorreto');
       pendingPin = '';
