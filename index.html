@@ -129,7 +129,7 @@
 <div id="app">
 
   <header>
-    <h1><span class="title-row"><span class="brand">ZERO!</span> Controle</span><small class="app-version">v1.8.1</small></h1>
+    <h1><span class="title-row"><span class="brand">ZERO!</span> Controle</span><small class="app-version">v1.8.2</small></h1>
     <button id="settingsBtn" title="Configurações">⚙</button>
   </header>
 
@@ -964,7 +964,7 @@ async function openReview(parsed, base64){
       <div class="row">
         <div>
           <label>Qtd</label>
-          <input class="f-qtd" type="number" step="0.01" value="${item.quantidade ?? 0}">
+          <input class="f-qtd" type="number" step="0.01" value="${item.quantidade || 0}">
         </div>
         <div>
           <label>Unid.</label>
@@ -972,7 +972,7 @@ async function openReview(parsed, base64){
         </div>
         <div>
           <label>Valor unit.</label>
-          <input class="f-vu" type="number" step="0.01" value="${item.valor_unitario ?? 0}">
+          <input class="f-vu" type="number" step="0.01" value="${item.valor_unitario || 0}">
         </div>
       </div>
       <div style="margin-top:6px">${tag} ${barcodeTag}</div>
@@ -1001,7 +1001,7 @@ async function openReview(parsed, base64){
       </div>
       <div>
         <label>Valor total</label>
-        <input id="f-valortotal" type="number" step="0.01" value="${parsed.valor_total ?? 0}">
+        <input id="f-valortotal" type="number" step="0.01" value="${parsed.valor_total || 0}">
       </div>
     </div>
     <label>Chave de acesso da NFe</label>
@@ -1666,7 +1666,7 @@ function stockCardHtml(e){
           <div class="item-meta">${partes.join(' · ')}</div>
         </div>
         <div style="text-align:right">
-          <div class="price">${e.quantidade ?? 0}${e.vendidoPorCaixa ? ' cx' : ''}</div>
+          <div class="price">${e.quantidade || 0}${e.vendidoPorCaixa ? ' cx' : ''}</div>
           ${e.baixo ? `<span class="tag up">⚠ baixo</span>` : ''}
         </div>
       </div>
@@ -1774,13 +1774,13 @@ function openStockDetail(produtoKey, e){
     <button class="close-x" id="closeReview">✕</button>
     <div class="section-title">${escapeHtml(e.nome||'(sem nome)')}</div>
     <button type="button" class="btn ghost" id="renomearProdutoBtn" style="width:auto;padding:4px 8px;font-size:12px;margin-bottom:10px">🏷 Renomear</button>
-    <div class="item-meta">Quantidade atual: <b>${e.quantidade ?? 0}${e.vendidoPorCaixa ? ' cx' : ''}</b></div>
+    <div class="item-meta">Quantidade atual: <b>${e.quantidade || 0}${e.vendidoPorCaixa ? ' cx' : ''}</b></div>
     <label>Estoque mínimo (lembrete de compra)</label>
-    <input id="f-estmin" type="number" step="1" value="${e.estoqueMinimo ?? 0}">
+    <input id="f-estmin" type="number" step="1" value="${e.estoqueMinimo || 0}">
     ${e.atualizadoEm ? `<small class="hint">${dataAtualizacaoHtml(e.atualizadoEm)}</small>` : ''}
     <div style="margin-top:24px;border-top:1px solid var(--line);padding-top:16px">
       <label>Corrigir quantidade em estoque${e.vendidoPorCaixa ? ' (em caixas, ex: 8.5)' : ''}</label>
-      <input id="f-ajuste" type="number" step="${e.vendidoPorCaixa ? '0.5' : '1'}" value="${e.quantidade ?? 0}">
+      <input id="f-ajuste" type="number" step="${e.vendidoPorCaixa ? '0.5' : '1'}" value="${e.quantidade || 0}">
       <small class="hint">Use isso pra acertar o número quando estiver errado (ex: contagem física, estoque inicial).</small>
     </div>
     <div style="margin-top:16px">

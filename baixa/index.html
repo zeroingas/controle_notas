@@ -402,7 +402,7 @@ function stockRowHtml(e){
           <div style="font-size:22px">${escapeHtml(e.nome||'(sem nome)')}</div>
           ${e.categoria && e.categoria!=='Sem categoria' ? `<div class="item-meta">${escapeHtml(e.categoria)}</div>` : ''}
         </div>
-        <div class="price">${e.quantidade ?? 0}${e.vendidoPorCaixa ? ' cx' : ''}</div>
+        <div class="price">${e.quantidade || 0}${e.vendidoPorCaixa ? ' cx' : ''}</div>
       </div>
     </div>`;
 }
@@ -415,7 +415,7 @@ function quickSlotHtml(produto, index){
     <div class="quick-slot filled" data-slot-key="${escapeHtml(produto.produtoKey)}">
       <button type="button" class="quick-edit" data-slot-edit="${index}">✏️</button>
       <div style="font-size:20px">${escapeHtml(produto.nome||'(sem nome)')}</div>
-      <div class="price">${produto.quantidade ?? 0}${produto.vendidoPorCaixa ? ' cx' : ''}</div>
+      <div class="price">${produto.quantidade || 0}${produto.vendidoPorCaixa ? ' cx' : ''}</div>
     </div>`;
 }
 
@@ -559,7 +559,7 @@ function renderBaixaManual(modal, sheet, produto){
   sheet.innerHTML = `
     <button class="close-x" id="closeBaixa">✕</button>
     <div class="section-title">${escapeHtml(produto.nome||'(sem nome)')}</div>
-    <div class="item-meta">Quantidade atual: <b>${produto.quantidade ?? 0}${produto.vendidoPorCaixa ? ' cx' : ''}</b></div>
+    <div class="item-meta">Quantidade atual: <b>${produto.quantidade || 0}${produto.vendidoPorCaixa ? ' cx' : ''}</b></div>
     <label>Quantidade pra dar baixa${produto.vendidoPorCaixa ? ' (em caixas)' : ''}</label>
     <div class="row" style="align-items:center;gap:10px">
       <button class="btn secondary" id="qtyMinus" style="width:48px">−</button>
@@ -601,7 +601,7 @@ function openBaixaModal(produto){
   sheet.innerHTML = `
     <button class="close-x" id="closeBaixa">✕</button>
     <div class="section-title">${escapeHtml(produto.nome||'(sem nome)')}</div>
-    <div class="item-meta">Quantidade atual: <b>${produto.quantidade ?? 0} cx</b></div>
+    <div class="item-meta">Quantidade atual: <b>${produto.quantidade || 0} cx</b></div>
     <label>Quanto vai sair do estoque?</label>
     <div class="row" style="gap:10px;margin-top:6px">
       <button class="btn" id="baixaCaixaBtn" style="flex:1">📦 Caixa inteira</button>
