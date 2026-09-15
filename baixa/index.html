@@ -105,18 +105,18 @@
 
   .close-x{background:none;border:none;color:var(--text-dim);font-size:32px;cursor:pointer;
     position:absolute;top:14px;right:18px;}
-  .modal{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:150;display:none;
+  .modal{position:fixed;top:0;right:0;bottom:0;left:0;background:rgba(0,0,0,.7);z-index:150;display:none;
     align-items:flex-end;justify-content:center;}
   .modal.active{display:flex;}
   .modal-sheet{background:var(--bg-elev);width:100%;max-width:760px;border-radius:20px 20px 0 0;
     padding:26px;max-height:85vh;overflow-y:auto;position:relative;}
 
-  #loginScreen{position:fixed;inset:0;background:var(--bg);z-index:600;
+  #loginScreen{position:fixed;top:0;right:0;bottom:0;left:0;background:var(--bg);z-index:600;
     display:none;flex-direction:column;justify-content:center;padding:24px;}
   #loginScreen.active{display:flex;}
 
   /* Tela de usuário / PIN, ocupa a tela toda */
-  #authScreen{position:fixed;inset:0;background:var(--bg);z-index:500;
+  #authScreen{position:fixed;top:0;right:0;bottom:0;left:0;background:var(--bg);z-index:500;
     display:none;flex-direction:column;padding:24px;overflow-y:auto;}
   #authScreen.active{display:flex;}
   #authScreen .wrap{max-width:520px;margin:0 auto;width:100%;flex:1;display:flex;flex-direction:column;justify-content:center;}

@@ -83,7 +83,7 @@
   .tag.down{background:rgba(22,163,74,.2);color:#4ade80;}
   .tag.same{background:rgba(154,154,154,.15);color:var(--text-dim);}
 
-  #camWrap{position:fixed;inset:0;background:#000;z-index:100;display:none;
+  #camWrap{position:fixed;top:0;right:0;bottom:0;left:0;background:#000;z-index:100;display:none;
     flex-direction:column;}
   #camWrap.active{display:flex;}
   #camVideo{flex:1;width:100%;object-fit:cover;background:#000;}
@@ -95,7 +95,7 @@
   #camCancel{background:none;border:1px solid #555;color:#fff;width:44px;height:44px;
     border-radius:50%;font-size:20px;cursor:pointer;}
 
-  #processingOverlay{position:fixed;inset:0;background:rgba(0,0,0,.9);z-index:200;
+  #processingOverlay{position:fixed;top:0;right:0;bottom:0;left:0;background:rgba(0,0,0,.9);z-index:200;
     display:none;flex-direction:column;align-items:center;justify-content:center;gap:16px;}
   #processingOverlay.active{display:flex;}
   .spinner{width:40px;height:40px;border:3px solid var(--line);border-top-color:var(--red);
@@ -115,7 +115,7 @@
 
   .close-x{background:none;border:none;color:var(--text-dim);font-size:22px;cursor:pointer;
     position:absolute;top:10px;right:14px;}
-  .modal{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:150;display:none;
+  .modal{position:fixed;top:0;right:0;bottom:0;left:0;background:rgba(0,0,0,.7);z-index:150;display:none;
     align-items:flex-end;justify-content:center;}
   .modal.active{display:flex;}
   .modal-sheet{background:var(--bg-elev);width:100%;max-width:520px;border-radius:16px 16px 0 0;
@@ -129,7 +129,7 @@
 <div id="app">
 
   <header>
-    <h1><span class="title-row"><span class="brand">ZERO!</span> Controle</span><small class="app-version">v1.8.3</small></h1>
+    <h1><span class="title-row"><span class="brand">ZERO!</span> Controle</span><small class="app-version">v1.8.4</small></h1>
     <button id="settingsBtn" title="Configurações">⚙</button>
   </header>
 
@@ -237,7 +237,7 @@
 </div>
 
 <!-- Login Screen -->
-<div id="loginScreen" style="position:fixed;inset:0;background:var(--bg);z-index:500;
+<div id="loginScreen" style="position:fixed;top:0;right:0;bottom:0;left:0;background:var(--bg);z-index:500;
   display:none;flex-direction:column;justify-content:center;padding:24px;">
   <div style="max-width:420px;margin:0 auto;width:100%">
     <h1 style="text-align:center;margin-bottom:6px;font-size:20px;letter-spacing:1px;text-transform:uppercase">
