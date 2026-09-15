@@ -137,14 +137,6 @@
 
   small.hint{color:var(--text-dim);font-size:16px;display:block;margin-top:6px;}
 
-  .quick-slot{background:var(--bg-elev);border:1px dashed var(--line);border-radius:12px;
-    padding:18px;cursor:pointer;position:relative;min-height:84px;
-    display:flex;flex-direction:column;justify-content:center;}
-  .quick-slot.filled{border-style:solid;}
-  .quick-slot .quick-plus{font-size:34px;color:var(--text-dim);text-align:center;}
-  .quick-slot .quick-edit{position:absolute;top:8px;right:10px;font-size:16px;color:var(--text-dim);
-    background:none;border:none;cursor:pointer;padding:4px;}
-
   .marca-group{border:2px solid #fff;border-radius:14px;padding:14px 14px 2px;margin-bottom:14px;}
   .marca-group-label{font-size:20px;font-weight:bold;color:#fff;margin-bottom:10px;
     text-align:left;letter-spacing:.5px;}
@@ -274,19 +266,6 @@ async function getBaixasDaSessao(usuarioId, desde){
     .sort((a,b)=> a.criadoEm.localeCompare(b.criadoEm));
 }
 
-const ACESSO_RAPIDO_SLOTS = 4;
-async function getAcessoRapido(){
-  const doc = await fsDB.collection('config').doc('acessoRapidoBaixa').get();
-  const slots = (doc.exists && doc.data().produtoKeys) || [];
-  while(slots.length < ACESSO_RAPIDO_SLOTS) slots.push(null);
-  return slots.slice(0, ACESSO_RAPIDO_SLOTS);
-}
-async function setAcessoRapidoSlot(index, produtoKey){
-  const slots = await getAcessoRapido();
-  slots[index] = produtoKey || null;
-  await fsDB.collection('config').doc('acessoRapidoBaixa').set({ produtoKeys: slots }, {merge:true});
-}
-
 function escapeHtml(s){
   return (s||'').toString().replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 }
@@ -407,18 +386,6 @@ function stockRowHtml(e){
     </div>`;
 }
 
-function quickSlotHtml(produto, index){
-  if(!produto){
-    return `<div class="quick-slot" data-slot-empty="${index}"><div class="quick-plus">+</div></div>`;
-  }
-  return `
-    <div class="quick-slot filled" data-slot-key="${escapeHtml(produto.produtoKey)}">
-      <button type="button" class="quick-edit" data-slot-edit="${index}">✏️</button>
-      <div style="font-size:20px">${escapeHtml(produto.nome||'(sem nome)')}</div>
-      <div class="price">${produto.quantidade || 0}${produto.vendidoPorCaixa ? ' cx' : ''}</div>
-    </div>`;
-}
-
 /* Agrupa os produtos filtrados por marca (quando marca está salva no
    estoque). Cada grupo (2+ produtos da mesma marca) fica junto, ordenado
    por quem tem menos quantidade primeiro; produtos sem marca ficam soltos.
@@ -454,7 +421,7 @@ function blocoHtml(bloco){
 }
 
 async function renderBaixaTab(){
-  const [estoqueList, categoriasMap, acessoRapido, marcasMap, ultimasBaixas] = await Promise.all([getAllEstoque(), getAllCategorias(), getAcessoRapido(), getAllMarcas(), getRecentBaixas(2)]);
+  const [estoqueList, categoriasMap, marcasMap, ultimasBaixas] = await Promise.all([getAllEstoque(), getAllCategorias(), getAllMarcas(), getRecentBaixas(2)]);
   const list = estoqueList.map(e=>({...e, categoria: categoriasMap[e.produtoKey] || 'Sem categoria'}));
 
   if(!list.length){
@@ -479,10 +446,6 @@ async function renderBaixaTab(){
     mainEl.innerHTML = `
       <div class="dar-baixa-cols">
         <div class="dar-baixa-col-left">
-          <div class="section-title">⭐ Acesso rápido</div>
-          <div class="grid2" id="quickSlots">
-            ${acessoRapido.map((key,i)=> quickSlotHtml(key ? byKey[key] : null, i)).join('')}
-          </div>
           <div class="section-title">${list.length} produtos · ${categoriaNames.length} categoria(s)</div>
           <div class="grid2">
             ${categoriaNames.map(cat=>`
@@ -511,18 +474,6 @@ async function renderBaixaTab(){
       </div>`;
     mainEl.querySelectorAll('[data-categoria]').forEach(card=>{
       card.onclick = ()=>{ selectedCategoria = card.dataset.categoria; render(); };
-    });
-    mainEl.querySelectorAll('[data-slot-key]').forEach(card=>{
-      card.onclick = (ev)=>{
-        if(ev.target.closest('[data-slot-edit]')) return;
-        openBaixaModal(byKey[card.dataset.slotKey]);
-      };
-    });
-    mainEl.querySelectorAll('[data-slot-empty]').forEach(card=>{
-      card.onclick = ()=> openSlotPicker(parseInt(card.dataset.slotEmpty), list);
-    });
-    mainEl.querySelectorAll('[data-slot-edit]').forEach(btn=>{
-      btn.onclick = (ev)=>{ ev.stopPropagation(); openSlotPicker(parseInt(btn.dataset.slotEdit), list); };
     });
   } else {
     const filtered = list.filter(e=>e.categoria === selectedCategoria);
@@ -618,51 +569,6 @@ function openBaixaModal(produto){
     confirmarBaixa(modal, produto, 0.5, document.getElementById('baixaMeiaBtn'), '📦 Meia caixa');
   };
   document.getElementById('outraQtdBtn').onclick = ()=> renderBaixaManual(modal, sheet, produto);
-  modal.classList.add('active');
-}
-
-function openSlotPicker(index, list){
-  const modal = document.getElementById('baixaModal');
-  const sheet = document.getElementById('baixaSheet');
-  const nomeToKey = {};
-  list.forEach(x=>{ nomeToKey[x.nome] = x.produtoKey; });
-  sheet.innerHTML = `
-    <button class="close-x" id="closeBaixa">✕</button>
-    <div class="section-title">Atalho de acesso rápido</div>
-    <label>Produto</label>
-    <input id="f-slot-produto" list="slotProdutosList" placeholder="Digite pra buscar...">
-    <datalist id="slotProdutosList">
-      ${list.map(x=>`<option value="${escapeHtml(x.nome)}">`).join('')}
-    </datalist>
-    <div style="margin-top:16px">
-      <button class="btn" id="confirmSlotBtn">Salvar atalho</button>
-    </div>
-    <button class="btn ghost" id="clearSlotBtn" style="margin-top:10px">Remover atalho</button>
-  `;
-  document.getElementById('closeBaixa').onclick = ()=> modal.classList.remove('active');
-  document.getElementById('confirmSlotBtn').onclick = async ()=>{
-    const val = document.getElementById('f-slot-produto').value.trim();
-    if(!nomeToKey.hasOwnProperty(val)){ toast('Escolha um produto da lista'); return; }
-    const btn = document.getElementById('confirmSlotBtn');
-    btn.textContent = 'Salvando...'; btn.disabled = true;
-    try{
-      await setAcessoRapidoSlot(index, nomeToKey[val]);
-      toast('Atalho salvo');
-      modal.classList.remove('active');
-      render();
-    }catch(err){
-      toast('Erro: ' + err.message);
-      btn.textContent = 'Salvar atalho'; btn.disabled = false;
-    }
-  };
-  document.getElementById('clearSlotBtn').onclick = async ()=>{
-    try{
-      await setAcessoRapidoSlot(index, null);
-      toast('Atalho removido');
-      modal.classList.remove('active');
-      render();
-    }catch(err){ toast('Erro: ' + err.message); }
-  };
   modal.classList.add('active');
 }
 
