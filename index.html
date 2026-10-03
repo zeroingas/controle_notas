@@ -129,7 +129,7 @@
 <div id="app">
 
   <header>
-    <h1><span class="title-row"><span class="brand">ZERO!</span> Controle</span><small class="app-version">v1.9.0</small></h1>
+    <h1><span class="title-row"><span class="brand">ZERO!</span> Controle</span><small class="app-version">v1.9.1</small></h1>
     <button id="settingsBtn" title="Configurações">⚙</button>
   </header>
 
@@ -1026,7 +1026,7 @@ async function openReview(parsed, base64){
       </div>
     </div>
     <label>Chave de acesso da NFe</label>
-    <input id="f-chave" value="${escapeHtml(parsed.chave_acesso||'')}" placeholder="44 dígitos (opcional)" inputmode="numeric"${parsed.chaveAcessoSuspeita ? ' style="border-color:var(--red)"' : ''}>
+    <input id="f-chave" value="${escapeHtml(formatChaveAcesso(parsed.chave_acesso||''))}" placeholder="44 dígitos (opcional)" inputmode="numeric"${parsed.chaveAcessoSuspeita ? ' style="border-color:var(--red)"' : ''}>
     <small class="hint" id="f-chave-hint">${parsed.chaveAcessoSuspeita
       ? '⚠️ Essa chave não bateu na conferência de dígito — a leitura pode ter errado algum número. Confira com a nota física antes de salvar.'
       : 'Preencha ou corrija pra conseguir localizar essa nota pela chave depois (útil em fiscalização, se você não tiver a nota impressa).'}</small>
@@ -1091,13 +1091,20 @@ async function openReview(parsed, base64){
   bindItemEvents();
 
   document.getElementById('f-chave').oninput = (e)=>{
-    const digits = e.target.value.replace(/\D/g,'');
+    const input = e.target;
+    const cursorPos = input.selectionStart;
+    const digitsBeforeCursor = input.value.slice(0, cursorPos).replace(/\D/g,'').length;
+    const digits = input.value.replace(/\D/g,'').slice(0,44);
+    input.value = digits.match(/.{1,4}/g)?.join(' ') || digits;
+    const newPos = digitsBeforeCursor === 0 ? 0 : digitsBeforeCursor + Math.floor((digitsBeforeCursor - 1) / 4);
+    input.setSelectionRange(newPos, newPos);
+
     const hint = document.getElementById('f-chave-hint');
     if(digits.length === 44 && !validarChaveAcesso(digits)){
-      e.target.style.borderColor = 'var(--red)';
+      input.style.borderColor = 'var(--red)';
       hint.textContent = '⚠️ Essa chave não bateu na conferência de dígito — confira com a nota física antes de salvar.';
     } else {
-      e.target.style.borderColor = '';
+      input.style.borderColor = '';
       hint.textContent = 'Preencha ou corrija pra conseguir localizar essa nota pela chave depois (útil em fiscalização, se você não tiver a nota impressa).';
     }
   };
