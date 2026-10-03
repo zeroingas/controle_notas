@@ -129,7 +129,7 @@
 <div id="app">
 
   <header>
-    <h1><span class="title-row"><span class="brand">ZERO!</span> Controle</span><small class="app-version">v1.8.4</small></h1>
+    <h1><span class="title-row"><span class="brand">ZERO!</span> Controle</span><small class="app-version">v1.9.0</small></h1>
     <button id="settingsBtn" title="Configurações">⚙</button>
   </header>
 
@@ -719,6 +719,24 @@ function formatChaveAcesso(chave){
   return digits.match(/.{1,4}/g).join(' ');
 }
 
+// Dígito verificador da chave de acesso da NFe/NFC-e: módulo 11 sobre os
+// primeiros 43 dígitos, com pesos de 2 a 9 ciclando da direita pra esquerda.
+// Serve pra pegar leitura errada da IA (dígito trocado) sem depender da nota física.
+function calcularDVChaveAcesso(chave43){
+  let soma = 0, peso = 2;
+  for(let i = chave43.length - 1; i >= 0; i--){
+    soma += Number(chave43[i]) * peso;
+    peso = peso === 9 ? 2 : peso + 1;
+  }
+  const resto = soma % 11;
+  return (resto === 0 || resto === 1) ? 0 : 11 - resto;
+}
+function validarChaveAcesso(chave){
+  const digits = (chave||'').replace(/\D/g,'');
+  if(digits.length !== 44) return false;
+  return Number(digits[43]) === calcularDVChaveAcesso(digits.slice(0,43));
+}
+
 function parseNFeXml(xmlString){
   const parser = new DOMParser();
   const doc = parser.parseFromString(xmlString, 'text/xml');
@@ -862,7 +880,7 @@ Regras:
   - Não inclua o desconto como um item separado na lista de itens.
 - Se a nota tiver um desconto total geral (não vinculado a um item específico), aplique-o proporcionalmente aos itens se possível, ou ignore-o nos itens e deixe o valor_total da nota refletir o valor final a pagar.
 - Procure por texto como "FORMA DE PAGAMENTO", "FORMA DE PAGTO", "MEIO DE PAGAMENTO" na nota. Se encontrar termos como "PIX" ou "CARTEIRA DIGITAL" use "PIX"; "DINHEIRO" ou "ESPECIE" use "Dinheiro"; "CREDITO" use "Cartão de Crédito"; qualquer outro termo (débito, boleto, etc) use "Outro". Se não encontrar nada relacionado a pagamento, deixe "forma_pagamento" como string vazia.
-- "chave_acesso" deve ter exatamente 44 dígitos numéricos (sem espaços, pontos ou traços). Se não conseguir ler todos os 44 dígitos com certeza, deixe string vazia — não invente ou complete dígitos.
+- "chave_acesso" deve ter exatamente 44 dígitos numéricos (sem espaços, pontos ou traços). É um campo crítico: leia dígito por dígito, com calma, sem se deixar confundir por caracteres próximos (código de barras, outros números da nota). Se a foto estiver borrada ou algum dígito estiver ambíguo, releia aquele trecho antes de responder. Se mesmo assim não conseguir ler todos os 44 dígitos com certeza, deixe string vazia — não invente ou complete dígitos.
 - Responda APENAS o JSON, nada mais.`;
 
     const response = await fetch('https://api.anthropic.com/v1/messages', {
@@ -895,6 +913,9 @@ Regras:
     if(!textBlock) throw new Error('Resposta sem texto');
     let clean = textBlock.text.trim().replace(/^```json/i,'').replace(/^```/,'').replace(/```$/,'').trim();
     const parsed = JSON.parse(clean);
+    if(parsed.chave_acesso && !validarChaveAcesso(parsed.chave_acesso)){
+      parsed.chaveAcessoSuspeita = true;
+    }
     document.getElementById('processingOverlay').classList.remove('active');
     await openReview(parsed, base64);
   }catch(err){
@@ -1005,8 +1026,10 @@ async function openReview(parsed, base64){
       </div>
     </div>
     <label>Chave de acesso da NFe</label>
-    <input id="f-chave" value="${escapeHtml(parsed.chave_acesso||'')}" placeholder="44 dígitos (opcional)" inputmode="numeric">
-    <small class="hint">Preencha ou corrija pra conseguir localizar essa nota pela chave depois (útil em fiscalização, se você não tiver a nota impressa).</small>
+    <input id="f-chave" value="${escapeHtml(parsed.chave_acesso||'')}" placeholder="44 dígitos (opcional)" inputmode="numeric"${parsed.chaveAcessoSuspeita ? ' style="border-color:var(--red)"' : ''}>
+    <small class="hint" id="f-chave-hint">${parsed.chaveAcessoSuspeita
+      ? '⚠️ Essa chave não bateu na conferência de dígito — a leitura pode ter errado algum número. Confira com a nota física antes de salvar.'
+      : 'Preencha ou corrija pra conseguir localizar essa nota pela chave depois (útil em fiscalização, se você não tiver a nota impressa).'}</small>
     <label>Forma de pagamento</label>
     <select id="f-pagamento">
       <option value="">Não identificado</option>
@@ -1066,6 +1089,18 @@ async function openReview(parsed, base64){
     });
   }
   bindItemEvents();
+
+  document.getElementById('f-chave').oninput = (e)=>{
+    const digits = e.target.value.replace(/\D/g,'');
+    const hint = document.getElementById('f-chave-hint');
+    if(digits.length === 44 && !validarChaveAcesso(digits)){
+      e.target.style.borderColor = 'var(--red)';
+      hint.textContent = '⚠️ Essa chave não bateu na conferência de dígito — confira com a nota física antes de salvar.';
+    } else {
+      e.target.style.borderColor = '';
+      hint.textContent = 'Preencha ou corrija pra conseguir localizar essa nota pela chave depois (útil em fiscalização, se você não tiver a nota impressa).';
+    }
+  };
 
   document.getElementById('addItemBtn').onclick = ()=>{
     syncItemsStateFromDom();
